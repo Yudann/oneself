@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --app-bg: #fbfbfa;
+  --sidebar-bg: #f7f6f3;
+  --card-bg: #ffffff;
+  --text-main: #18181b;
+  --text-dim: #71717a;
+  --border-color: #e4e4e7;
+  --input-bg: #f9f9f9;
+  --accent-main: #18181b;
+  --accent-text: #ffffff;
+}
+
+.dark {
+  --app-bg: #09090b;
+  --sidebar-bg: #111113;
+  --card-bg: #111113;
+  --text-main: #fafafa;
+  --text-dim: #a1a1aa;
+  --border-color: #27272a;
+  --input-bg: #18181b;
+  --accent-main: #fafafa;
+  --accent-text: #09090b;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--app-bg);
+  color: var(--text-main);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.serif {
+  font-family: 'Instrument Serif', serif;
+}
+
+/* Scrollbar Optimization */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #e2e2e2;
+  border-radius: 10px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #27272a;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Custom Input Fixes */
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-dim);
+  opacity: 0.5;
+}
