@@ -20,6 +20,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ activities, onAddAct
     category: 'Personal' as Category,
     intensity: 'medium' as Intensity,
     mood: 'Neutral' as Mood,
+    color: CATEGORY_COLORS['Personal'],
     duration: 30,
   });
 
