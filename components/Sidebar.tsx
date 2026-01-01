@@ -21,6 +21,7 @@ import {
   Trash2,
   LogOut
 } from 'lucide-react';
+import { ConfirmModal } from './ui/ConfirmModal';
 
 const ICON_MAP: Record<string, any> = {
   'dashboard': Home,
@@ -44,6 +45,11 @@ export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
   const [expandedPages, setExpandedPages] = useState<Record<string, boolean>>({});
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    type: 'logout' | 'delete_page' | null;
+    data?: any;
+  }>({ isOpen: false, type: null });
 
   const toggleExpand = (id: string) => {
     setExpandedPages(prev => ({ ...prev, [id]: !prev[id] }));
@@ -51,6 +57,16 @@ export const Sidebar: React.FC = () => {
 
   const handlePageClick = (page: Page) => {
     if (window.innerWidth < 1024) toggleSidebar();
+  };
+
+  const handleConfirmAction = () => {
+    if (modalConfig.type === 'logout') {
+      logout();
+    } else if (modalConfig.type === 'delete_page' && modalConfig.data) {
+      deletePage(modalConfig.data);
+      if (pathname.includes(modalConfig.data)) router.push('/');
+    }
+    setModalConfig({ ...modalConfig, isOpen: false });
   };
 
   const renderPageItem = (page: Page, depth = 0) => {
@@ -121,10 +137,11 @@ export const Sidebar: React.FC = () => {
                     onClick={(e) => { 
                       e.preventDefault();
                       e.stopPropagation(); 
-                      if(confirm('Delete this page?')) {
-                        deletePage(page.id);
-                        if (isActive) router.push('/');
-                      }
+                      setModalConfig({
+                        isOpen: true,
+                        type: 'delete_page',
+                        data: page.id
+                      });
                     }}
                     className="p-1 hover:bg-rose-100 dark:hover:bg-rose-900/40 rounded text-zinc-400 hover:text-rose-600 dark:text-zinc-600 dark:hover:text-rose-400"
                   >
@@ -250,9 +267,10 @@ export const Sidebar: React.FC = () => {
           </Link>
           <button 
             onClick={() => {
-              if (confirm('Are you sure you want to log out? Your data will remain stored in your browser.')) {
-                logout();
-              }
+              setModalConfig({
+                isOpen: true,
+                type: 'logout'
+              });
             }}
             className="p-3 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-zinc-400 hover:text-rose-500 transition-all rounded-2xl"
             title="Log Out"
@@ -261,6 +279,20 @@ export const Sidebar: React.FC = () => {
           </button>
         </div>
       </aside>
+
+      <ConfirmModal 
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+        onConfirm={handleConfirmAction}
+        title={modalConfig.type === 'logout' ? 'Log Out' : 'Delete Page'}
+        description={
+          modalConfig.type === 'logout' 
+            ? "Are you sure you want to log out? You will need to sign in again to access your data." 
+            : "This page and all its contents will be permanently deleted. This action cannot be undone."
+        }
+        confirmLabel={modalConfig.type === 'logout' ? 'Log Out' : 'Delete'}
+        variant="danger"
+      />
     </>
   );
 };
