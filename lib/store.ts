@@ -28,7 +28,8 @@ const DEFAULT_STATE: AppState = {
     energyGuardian: true,
     restEncourager: true,
     highIntensityLimit: 2
-  }
+  },
+  isAuthenticated: false
 };
 
 export const useAppStore = () => {
@@ -246,8 +247,28 @@ export const useAppStore = () => {
     }));
   };
 
+  const login = (email: string, name: string) => {
+    setState(prev => ({
+      ...prev,
+      isAuthenticated: true,
+      userProfile: {
+        ...prev.userProfile,
+        email,
+        name,
+      }
+    }));
+  };
+
+  const logout = () => {
+    setState(prev => ({
+      ...prev,
+      isAuthenticated: false
+    }));
+  };
+
   return {
     state,
+    isLoaded,
     setPage,
     toggleSidebar,
     addPrivatePage,
@@ -266,6 +287,8 @@ export const useAppStore = () => {
     moveFocusItem,
     toggleFocusItemCompletion,
     removeFocusItem,
-    importData
+    importData,
+    login,
+    logout
   };
 };

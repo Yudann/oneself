@@ -18,7 +18,8 @@ import {
   Plus,
   ChevronDown,
   ChevronRight,
-  Trash2
+  Trash2,
+  LogOut
 } from 'lucide-react';
 
 const ICON_MAP: Record<string, any> = {
@@ -36,7 +37,8 @@ export const Sidebar: React.FC = () => {
     toggleSidebar, 
     addPrivatePage, 
     deletePage, 
-    updateUserPreferences 
+    updateUserPreferences,
+    logout
   } = useStore();
   
   const pathname = usePathname();
@@ -227,8 +229,8 @@ export const Sidebar: React.FC = () => {
         </nav>
 
         {/* User Account Section */}
-        <div className="mt-auto pt-6 border-t border-border">
-          <Link href="/settings">
+        <div className="mt-auto pt-6 border-t border-border flex items-center justify-between gap-2">
+          <Link href="/settings" className="flex-1 min-w-0">
             <div className="flex items-center gap-3 p-2 rounded-2xl hover:bg-zinc-200/40 dark:hover:bg-zinc-800/40 transition-colors cursor-pointer group">
               <div 
                 className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md shrink-0 transition-transform group-hover:scale-105"
@@ -246,6 +248,17 @@ export const Sidebar: React.FC = () => {
               </div>
             </div>
           </Link>
+          <button 
+            onClick={() => {
+              if (confirm('Are you sure you want to log out? Your data will remain stored in your browser.')) {
+                logout();
+              }
+            }}
+            className="p-3 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-zinc-400 hover:text-rose-500 transition-all rounded-2xl"
+            title="Log Out"
+          >
+            <LogOut size={18} />
+          </button>
         </div>
       </aside>
     </>

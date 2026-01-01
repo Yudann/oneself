@@ -44,12 +44,12 @@ export interface EngineSettings {
   highIntensityLimit: number;
 }
 
-export type BlockType = 
-  | 'text' 
-  | 'activity_log' 
-  | 'heatmap' 
-  | 'insight' 
-  | 'calendar' 
+export type BlockType =
+  | 'text'
+  | 'activity_log'
+  | 'heatmap'
+  | 'insight'
+  | 'calendar'
   | 'focus_board'
   | 'heading'
   | 'todo_list'
@@ -87,6 +87,7 @@ export interface AppState {
   userProfile: UserProfile;
   userPreferences: UserPreferences;
   engineSettings: EngineSettings;
+  isAuthenticated: boolean;
 }
 
 export interface Rule {
