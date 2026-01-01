@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../lib/store-provider';
 import { Category, Intensity, Mood } from '../lib/types';
-import { CATEGORIES, INTENSITIES, MOODS } from '../lib/constants';
+import { CATEGORIES, INTENSITIES, MOODS, CATEGORY_COLORS } from '../lib/constants';
 import { Plus, X } from 'lucide-react';
 
 export const QuickAdd: React.FC = () => {
@@ -21,7 +21,11 @@ export const QuickAdd: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name) return;
-    addActivity({ ...form, tags: [] });
+    addActivity({ 
+      ...form, 
+      color: CATEGORY_COLORS[form.category],
+      tags: [] 
+    });
     setForm({ ...form, name: '' });
     setIsOpen(false);
   };
