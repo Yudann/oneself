@@ -107,7 +107,7 @@ export const useAppStore = () => {
   };
 
   // Block CRUD (Private Only)
-  const addBlockToPage = (pageId: string, type: BlockType) => {
+  const addBlockToPage = (pageId: string, type: BlockType, config?: any) => {
     setState(prev => ({
       ...prev,
       pages: prev.pages.map(p => {
@@ -115,7 +115,8 @@ export const useAppStore = () => {
         const newBlock: Block = {
           id: Math.random().toString(36).substr(2, 9),
           type,
-          content: ''
+          content: '',
+          config
         };
         return { ...p, blocks: [...p.blocks, newBlock] };
       })

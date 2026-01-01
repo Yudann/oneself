@@ -1,12 +1,14 @@
+"use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Block, Activity, FocusItem } from '../lib/types';
 import { DatabaseTable } from './DatabaseTable';
 import { Heatmap } from './Heatmap';
 import { KanbanBoard } from './KanbanBoard';
 import { InsightCard } from './InsightCard';
 import { CalendarView } from './CalendarView';
-import { Trash2, GripVertical, CheckSquare, Square, Quote as QuoteIcon, AlertCircle, Minus } from 'lucide-react';
+import { ColorMenu, TEXT_COLORS, BG_COLORS } from './ColorMenu';
+import { Trash2, GripVertical, CheckSquare, Square, Quote as QuoteIcon, Minus, ChevronRight, ChevronDown, Plus, Table as TableIcon, Palette } from 'lucide-react';
 
 interface BlockRendererProps {
   block: Block;
@@ -29,7 +31,30 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
   activityActions,
   focusActions
 }) => {
+  const [isToggled, setIsToggled] = useState(block.config?.isToggled || false);
+  const [showColorMenu, setShowColorMenu] = useState(false);
+
+  // Helper for styles
+  const getBlockStyle = () => {
+    const textStyle = TEXT_COLORS.find(c => c.id === block.textColor);
+    const bgStyle = BG_COLORS.find(c => c.id === block.backgroundColor);
+    
+    return {
+      color: textStyle?.color !== 'inherit' ? textStyle?.color : undefined,
+      backgroundColor: bgStyle?.color !== 'transparent' ? bgStyle?.color : undefined,
+      padding: bgStyle?.color !== 'transparent' ? '12px 16px' : undefined,
+      borderRadius: bgStyle?.color !== 'transparent' ? '8px' : undefined,
+    };
+  };
+
+  const handleColorSelect = (type: 'text' | 'bg', colorId: string) => {
+    if (type === 'text') onUpdateBlock({ textColor: colorId });
+    else onUpdateBlock({ backgroundColor: colorId });
+  };
+
   const renderBlockContent = () => {
+    const blockStyle = getBlockStyle();
+
     switch (block.type) {
       case 'heading':
         const level = block.config?.level || 1;
@@ -38,30 +63,114 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
           <input
             className={`w-full bg-transparent border-none outline-none font-bold serif ${fontSize} text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-200 dark:placeholder:text-zinc-800`}
             placeholder={`Heading ${level}`}
+            style={blockStyle}
             value={block.content}
             onChange={(e) => onUpdateBlock({ content: e.target.value })}
             disabled={!isEditable}
           />
         );
 
-      case 'todo_list':
-        const items = block.config?.items || [];
-        const toggleTodo = (id: string) => {
-          const newItems = items.map((it: any) => it.id === id ? { ...it, done: !it.done } : it);
-          onUpdateBlock({ config: { ...block.config, items: newItems } });
+      case 'bullet_list':
+        const bullets = block.config?.items || [''];
+        const updateBullet = (idx: number, val: string) => {
+          const newBullets = [...bullets];
+          newBullets[idx] = val;
+          onUpdateBlock({ config: { ...block.config, items: newBullets } });
         };
-        const updateTodo = (id: string, text: string) => {
-          const newItems = items.map((it: any) => it.id === id ? { ...it, text } : it);
-          onUpdateBlock({ config: { ...block.config, items: newItems } });
-        };
-        const addTodo = () => {
-          const newItems = [...items, { id: Math.random().toString(), text: '', done: false }];
-          onUpdateBlock({ config: { ...block.config, items: newItems } });
-        };
-
         return (
-          <div className="space-y-1.5 py-1">
-            {items.map((item: any) => (
+          <div className="space-y-1 py-1" style={blockStyle}>
+            {bullets.map((item: string, idx: number) => (
+              <div key={idx} className="flex gap-2 group/bullet">
+                <span className="text-zinc-400 mt-1" style={{ color: blockStyle.color }}>•</span>
+                <input
+                  className="flex-1 bg-transparent border-none outline-none text-sm text-zinc-700 dark:text-zinc-300"
+                  value={item}
+                  placeholder="Ketik sesuatu..."
+                  onChange={(e) => updateBullet(idx, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                       onUpdateBlock({ config: { ...block.config, items: [...bullets, ''] } });
+                    }
+                  }}
+                  style={{ color: blockStyle.color }}
+                />
+              </div>
+            ))}
+          </div>
+        );
+
+      case 'numbered_list':
+        const numbers = block.config?.items || [''];
+        const updateNumber = (idx: number, val: string) => {
+          const newNums = [...numbers];
+          newNums[idx] = val;
+          onUpdateBlock({ config: { ...block.config, items: newNums } });
+        };
+        return (
+          <div className="space-y-1 py-1" style={blockStyle}>
+            {numbers.map((item: string, idx: number) => (
+              <div key={idx} className="flex gap-2 group/num">
+                <span className="text-zinc-400 text-xs mt-1 w-4" style={{ color: blockStyle.color }}>{idx + 1}.</span>
+                <input
+                  className="flex-1 bg-transparent border-none outline-none text-sm text-zinc-700 dark:text-zinc-300"
+                  value={item}
+                  placeholder="Ketik sesuatu..."
+                  onChange={(e) => updateNumber(idx, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                       onUpdateBlock({ config: { ...block.config, items: [...numbers, ''] } });
+                    }
+                  }}
+                  style={{ color: blockStyle.color }}
+                />
+              </div>
+            ))}
+          </div>
+        );
+
+      case 'toggle':
+        return (
+          <div className="py-1" style={blockStyle}>
+            <div className="flex items-center gap-2 mb-2 group/toggle-header">
+              <button 
+                onClick={() => {
+                  const newState = !isToggled;
+                  setIsToggled(newState);
+                  onUpdateBlock({ config: { ...block.config, isToggled: newState } });
+                }}
+                className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+              >
+                {isToggled ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+              </button>
+              <input
+                className="flex-1 bg-transparent border-none outline-none text-sm font-bold text-zinc-800 dark:text-zinc-200"
+                value={block.content}
+                placeholder="Daftar tombol..."
+                onChange={(e) => onUpdateBlock({ content: e.target.value })}
+              />
+            </div>
+            {isToggled && (
+              <div className="pl-6 pt-1">
+                <textarea
+                   className="w-full bg-transparent border-none outline-none text-sm text-zinc-500 dark:text-zinc-400 resize-none min-h-[40px]"
+                   placeholder="Tulis detail di sini..."
+                   value={block.config?.subContent || ''}
+                   onChange={(e) => onUpdateBlock({ config: { ...block.config, subContent: e.target.value } })}
+                />
+              </div>
+            )}
+          </div>
+        );
+
+      case 'todo_list':
+        const todoItems = block.config?.items || [];
+        const toggleTodo = (id: string) => {
+          const newItems = todoItems.map((it: any) => it.id === id ? { ...it, done: !it.done } : it);
+          onUpdateBlock({ config: { ...block.config, items: newItems } });
+        };
+        return (
+          <div className="space-y-1.5 py-1" style={blockStyle}>
+            {todoItems.map((item: any) => (
               <div key={item.id} className="flex items-start gap-3 group/todo">
                 <button 
                   onClick={() => toggleTodo(item.id)}
@@ -73,76 +182,54 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                   className={`flex-1 bg-transparent border-none outline-none text-sm transition-all ${item.done ? 'line-through text-zinc-400 dark:text-zinc-600' : 'text-zinc-700 dark:text-zinc-200'}`}
                   value={item.text}
                   placeholder="Task..."
-                  onChange={(e) => updateTodo(item.id, e.target.value)}
-                  disabled={!isEditable}
+                  onChange={(e) => {
+                    const newItems = todoItems.map((it: any) => it.id === item.id ? { ...it, text: e.target.value } : it);
+                    onUpdateBlock({ config: { ...block.config, items: newItems } });
+                  }}
                 />
               </div>
             ))}
-            {isEditable && (
-              <button 
-                onClick={addTodo}
-                className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-600 hover:text-zinc-600 dark:hover:text-zinc-400 pl-8 pt-1 transition-colors"
-              >
-                + New Item
-              </button>
-            )}
+            <button 
+                onClick={() => onUpdateBlock({ config: { ...block.config, items: [...todoItems, { id: Math.random().toString(), text: '', done: false }] } })}
+                className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-600 hover:text-zinc-600 dark:hover:text-zinc-400 pl-8 pt-1"
+            >
+                + Tambah Tugas
+            </button>
           </div>
         );
 
-      case 'quote':
+      case 'table':
+        const tableData = block.config?.data || [['Header 1', 'Header 2'], ['', '']];
+        const updateCell = (rIdx: number, cIdx: number, val: string) => {
+            const newData = [...tableData.map(r => [...r])];
+            newData[rIdx][cIdx] = val;
+            onUpdateBlock({ config: { ...block.config, data: newData } });
+        };
+        const addRow = () => onUpdateBlock({ config: { ...block.config, data: [...tableData, Array(tableData[0].length).fill('')] } });
+        const addCol = () => onUpdateBlock({ config: { ...block.config, data: tableData.map(r => [...r, '']) } });
+        
         return (
-          <div className="border-l-4 border-zinc-200 dark:border-zinc-800 pl-6 py-2 italic serif text-xl text-zinc-600 dark:text-zinc-400">
-            <textarea
-              className="w-full bg-transparent border-none outline-none resize-none leading-relaxed placeholder:text-zinc-200 dark:placeholder:text-zinc-800"
-              placeholder="A word that grounds you..."
-              value={block.content}
-              onChange={(e) => onUpdateBlock({ content: e.target.value })}
-              rows={Math.max(1, block.content.split('\n').length)}
-              disabled={!isEditable}
-            />
-          </div>
-        );
-
-      case 'divider':
-        return <div className="h-px bg-zinc-100 dark:bg-zinc-800/60 w-full my-4" />;
-
-      case 'callout':
-        return (
-          <div className="flex gap-4 p-5 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800">
-            <div className="text-xl shrink-0 mt-0.5">
-              <input 
-                className="w-8 bg-transparent border-none outline-none text-center"
-                value={block.config?.icon || '💡'} 
-                onChange={(e) => onUpdateBlock({ config: { ...block.config, icon: e.target.value } })}
-              />
-            </div>
-            <textarea
-              className="flex-1 bg-transparent border-none outline-none resize-none text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 font-medium placeholder:text-zinc-300 dark:placeholder:text-zinc-700"
-              placeholder="Important note or highlight..."
-              value={block.content}
-              onChange={(e) => onUpdateBlock({ content: e.target.value })}
-              rows={Math.max(1, block.content.split('\n').length)}
-              disabled={!isEditable}
-            />
-          </div>
-        );
-
-      case 'mood_log':
-        const selectedMood = block.config?.mood;
-        const moodEmojis = { Great: '😆', Good: '😊', Neutral: '😐', Tired: '😴', Low: '😔' };
-        return (
-          <div className="flex flex-wrap items-center gap-4 md:gap-6 p-4 bg-white dark:bg-zinc-900/60 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-sm transition-colors">
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-600 pl-2">Current State</span>
-            <div className="flex gap-3">
-              {Object.entries(moodEmojis).map(([m, emoji]) => (
-                <button
-                  key={m}
-                  onClick={() => onUpdateBlock({ config: { ...block.config, mood: m } })}
-                  className={`text-2xl transition-all ${selectedMood === m ? 'scale-125 drop-shadow-md' : 'grayscale opacity-30 dark:opacity-20 hover:opacity-100 hover:grayscale-0'}`}
-                >
-                  {emoji}
-                </button>
-              ))}
+          <div className="py-4 space-y-3 overflow-x-auto no-scrollbar" style={blockStyle}>
+            <table className="w-full border-collapse border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+                <tbody>
+                    {tableData.map((row: string[], rIdx: number) => (
+                        <tr key={rIdx} className="divide-x divide-zinc-200 dark:divide-zinc-800">
+                            {row.map((cell: string, cIdx: number) => (
+                                <td key={cIdx} className={`p-0 ${rIdx === 0 ? 'bg-zinc-50 dark:bg-zinc-800/50 font-bold' : ''}`}>
+                                    <input 
+                                        className="w-full px-3 py-2 bg-transparent border-none outline-none text-xs text-zinc-700 dark:text-zinc-300 min-w-[120px]"
+                                        value={cell}
+                                        onChange={(e) => updateCell(rIdx, cIdx, e.target.value)}
+                                    />
+                                </td>
+                            ))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            <div className="flex gap-2">
+                <button onClick={addRow} className="text-[10px] font-bold uppercase tracking-tighter text-zinc-400 hover:text-zinc-900 dark:hover:text-white flex items-center gap-1"><Plus size={10} /> Baris</button>
+                <button onClick={addCol} className="text-[10px] font-bold uppercase tracking-tighter text-zinc-400 hover:text-zinc-900 dark:hover:text-white flex items-center gap-1"><Plus size={10} /> Kolom</button>
             </div>
           </div>
         );
@@ -151,7 +238,8 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
         return (
           <textarea
             className="w-full bg-transparent border-none outline-none resize-none text-zinc-800 dark:text-zinc-200 serif text-lg leading-relaxed placeholder:text-zinc-300 dark:placeholder:text-zinc-800"
-            placeholder="Click to start typing..."
+            style={blockStyle}
+            placeholder="Ketik untuk mulai menulis atau tekan '/' untuk perintah..."
             value={block.content}
             onChange={(e) => onUpdateBlock({ content: e.target.value })}
             rows={Math.max(1, block.content.split('\n').length)}
@@ -159,6 +247,9 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
           />
         );
 
+      case 'divider':
+        return <div className="h-px bg-zinc-100 dark:bg-zinc-800/60 w-full my-4" />;
+        
       case 'activity_log':
         return <DatabaseTable activities={activities} onDelete={activityActions.deleteActivity} onUpdate={activityActions.updateActivity} />;
       case 'heatmap':
@@ -169,30 +260,90 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
             <KanbanBoard activities={activities} focusItems={focusItems} onMove={focusActions.moveFocusItem} onSetFocus={focusActions.setFocusItem} onToggleComplete={focusActions.toggleFocusItemCompletion} onRemove={focusActions.removeFocusItem} />
           </div>
         );
-      case 'insight':
-        return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <InsightCard title="Daily Focus" description="Consistency is forming in your habits." type="positive" />
-            <InsightCard title="Balance" description="Remember to step away from the screen." type="suggestion" />
-          </div>
-        );
       case 'calendar':
         return <CalendarView activities={activities} onAddActivity={activityActions.addActivity} />;
+      case 'callout':
+          return (
+            <div className="flex gap-4 p-5 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800" style={blockStyle}>
+              <div className="text-xl shrink-0 mt-0.5" style={{ color: blockStyle.color }}>
+                <input 
+                  className="w-8 bg-transparent border-none outline-none text-center"
+                  value={block.config?.icon || '💡'} 
+                  onChange={(e) => onUpdateBlock({ config: { ...block.config, icon: e.target.value } })}
+                />
+              </div>
+              <textarea
+                className="flex-1 bg-transparent border-none outline-none resize-none text-sm leading-relaxed text-zinc-600 dark:text-zinc-400 font-medium placeholder:text-zinc-300 dark:placeholder:text-zinc-700"
+                placeholder="Catatan penting atau sorotan..."
+                value={block.content}
+                onChange={(e) => onUpdateBlock({ content: e.target.value })}
+                rows={Math.max(1, block.content.split('\n').length)}
+                disabled={!isEditable}
+                style={{ color: blockStyle.color }}
+              />
+            </div>
+          );
+      case 'quote':
+          return (
+            <div className="border-l-4 border-zinc-200 dark:border-zinc-800 pl-6 py-2 italic serif text-xl text-zinc-600 dark:text-zinc-400" style={blockStyle}>
+              <textarea
+                className="w-full bg-transparent border-none outline-none resize-none leading-relaxed placeholder:text-zinc-200 dark:placeholder:text-zinc-800"
+                placeholder="Kata yang menenangkanmu..."
+                value={block.content}
+                onChange={(e) => onUpdateBlock({ content: e.target.value })}
+                rows={Math.max(1, block.content.split('\n').length)}
+                disabled={!isEditable}
+                style={{ color: blockStyle.color }}
+              />
+            </div>
+          );
+      case 'insight':
+          return <InsightCard activities={activities} />;
+      case 'mood_log':
+          return (
+            <div className="p-6 bg-zinc-50 dark:bg-zinc-900/40 rounded-3xl border border-zinc-100 dark:border-zinc-800 text-center space-y-4" style={blockStyle}>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-zinc-400">How are you feeling?</h4>
+              <div className="flex justify-center gap-4 text-3xl">
+                {['Great', 'Good', 'Neutral', 'Tired', 'Low'].map(m => (
+                  <button key={m} className="hover:scale-125 transition-transform grayscale hover:grayscale-0 opacity-40 hover:opacity-100">
+                    {m === 'Great' && '😆'}
+                    {m === 'Good' && '😊'}
+                    {m === 'Neutral' && '😐'}
+                    {m === 'Tired' && '😴'}
+                    {m === 'Low' && '😔'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
       default:
-        return null;
+        return <div className="p-4 bg-zinc-50 rounded-xl text-xs text-zinc-400">Blok {block.type} akan hadir segera.</div>;
     }
   };
 
   return (
     <div className="relative group/block py-2 animate-in fade-in duration-300">
       {isEditable && (
-        <div className="absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover/block:opacity-100 transition-opacity flex flex-col items-center gap-1">
+        <div className="absolute -left-12 top-2 opacity-0 group-hover/block:opacity-100 transition-opacity flex flex-col items-center gap-1">
           <div className="p-1 cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-700 hover:text-zinc-500 dark:hover:text-zinc-400">
             <GripVertical size={16} />
           </div>
+          <button 
+            onClick={() => setShowColorMenu(!showColorMenu)}
+            className="p-1 text-zinc-300 dark:text-zinc-700 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-all"
+          >
+            <Palette size={16} />
+          </button>
           <button onClick={onDeleteBlock} className="p-1 text-zinc-300 dark:text-zinc-700 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded transition-all">
             <Trash2 size={16} />
           </button>
+          
+          {showColorMenu && (
+            <ColorMenu 
+              onSelect={handleColorSelect} 
+              onClose={() => setShowColorMenu(false)} 
+            />
+          )}
         </div>
       )}
       <div className="w-full">{renderBlockContent()}</div>

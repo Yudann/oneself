@@ -53,9 +53,13 @@ export type BlockType =
   | 'focus_board'
   | 'heading'
   | 'todo_list'
+  | 'bullet_list'
+  | 'numbered_list'
+  | 'toggle'
   | 'quote'
   | 'divider'
   | 'callout'
+  | 'table'
   | 'mood_log';
 
 export interface Block {
@@ -63,6 +67,8 @@ export interface Block {
   type: BlockType;
   content: string;
   config?: Record<string, any>;
+  textColor?: string;
+  backgroundColor?: string;
 }
 
 export interface Page {

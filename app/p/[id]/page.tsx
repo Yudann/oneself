@@ -8,10 +8,13 @@ import { BlockRenderer } from '@/components/BlockRenderer';
 import { Activity, BlockType } from '@/lib/types';
 import { Heading1, Type, CheckSquare, Quote, MessageSquare, Smile, Minus, BarChart3, Target, Layout, Sparkles } from 'lucide-react';
 import { Menu } from 'lucide-react'; 
+import { CommandMenu } from '@/components/CommandMenu';
+import { useState, useEffect } from 'react';
 
 export default function DynamicPage() {
   const params = useParams();
   const router = useRouter();
+  const [showCommandMenu, setShowCommandMenu] = useState(false);
   const { 
     state, 
     updatePage, 
@@ -26,6 +29,21 @@ export default function DynamicPage() {
     toggleFocusItemCompletion, 
     removeFocusItem
   } = useStore();
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === '/' && !showCommandMenu) {
+        // Only show if not typing in an input/textarea (except if it's the start of a block maybe?)
+        // For simplicity, let's just allow it if not in another modal
+        if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+          e.preventDefault();
+          setShowCommandMenu(true);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showCommandMenu]);
 
   const pageId = params.id as string;
   
@@ -47,6 +65,13 @@ export default function DynamicPage() {
 
   return (
     <div className="max-w-4xl mx-auto py-8 md:py-12 px-4 md:px-8 space-y-8 pb-32 animate-in fade-in duration-500 transition-colors">
+      {showCommandMenu && (
+        <CommandMenu 
+          onSelect={(type, config) => addBlockToPage(currentPage.id, type, config)} 
+          onClose={() => setShowCommandMenu(false)} 
+        />
+      )}
+      
       <header className="space-y-4">
         <div className="flex items-center gap-4">
           <input type="text" value={currentPage.icon} onChange={(e) => updatePage(currentPage.id, { icon: e.target.value })} className="text-4xl w-14 bg-transparent border-none outline-none focus:ring-2 focus:ring-zinc-100 dark:focus:ring-zinc-900 rounded-xl px-2 transition-all text-center" placeholder="📄" />
@@ -63,7 +88,7 @@ export default function DynamicPage() {
         ) : (
           <div className="py-20 text-center space-y-4 opacity-30 dark:opacity-10">
             <p className="serif text-xl italic">Silence is where everything begins.</p>
-            <p className="text-[10px] font-bold uppercase tracking-widest">Add your first block below</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest">Type '/' for commands</p>
           </div>
         )}
       </div>
