@@ -3,6 +3,27 @@ export type Intensity = 'low' | 'medium' | 'high';
 export type Category = 'Work' | 'Personal' | 'Health' | 'Social' | 'Rest' | 'Focus';
 export type Mood = 'Great' | 'Good' | 'Neutral' | 'Tired' | 'Low';
 
+export interface Habit {
+  id: string;
+  user_id?: string;
+  name: string;
+  pillar: string;
+  frequency: 'daily' | 'weekly';
+  goal: number;
+  archived: boolean;
+  created_at?: string;
+}
+
+export interface HabitLog {
+  id: string;
+  habitId: string;
+  userId?: string;
+  date: string;
+  count: number;
+  note?: string;
+  createdAt?: string;
+}
+
 export interface Activity {
   id: string;
   name: string;
@@ -94,6 +115,8 @@ export interface AppState {
   userPreferences: UserPreferences;
   engineSettings: EngineSettings;
   isAuthenticated: boolean;
+  habits: Habit[];
+  habitLogs: HabitLog[];
 }
 
 export interface Rule {

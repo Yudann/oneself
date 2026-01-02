@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo } from 'react';
@@ -9,9 +8,12 @@ import { InsightCard } from '@/components/InsightCard';
 import { DatabaseTable } from '@/components/DatabaseTable';
 import { Sparkles, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { HabitDashboardWidget } from '@/components/habit-tracker/HabitDashboardWidget';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
   const { state, setPage, deleteActivity, updateActivity } = useStore();
+  const router = useRouter();
 
   const dashboardInsights = useMemo(() => {
     const last7Days = state.activities.filter(a => (new Date().getTime() - new Date(a.date).getTime()) < (7 * 24 * 60 * 60 * 1000));
@@ -72,29 +74,30 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* MIDDLE SECTION: Insights & Recommendations */}
+      {/* MIDDLE SECTION: Insights & Habits */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-4">
         <div className="lg:col-span-7 space-y-4">
-          <h2 className="text-[10px] uppercase font-bold tracking-[0.2em] text-zinc-400 dark:text-zinc-600 px-1">Refleksi Sejenak</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {dashboardInsights.insights.map((insight, idx) => (
-              <InsightCard key={idx} title={insight.title} description={insight.text} type={insight.type as any} />
-            ))}
-            {/* Fallback insight if empty */}
-            {dashboardInsights.insights.length < 2 && (
-              <InsightCard title="Daily Rhythm" description="Focus is a muscle. Consistency is its fuel." type="neutral" />
-            )}
-          </div>
-        </div>
-        <div className="lg:col-span-5">
-          <div className="bg-zinc-900 dark:bg-zinc-100 p-8 rounded-[2.5rem] text-white dark:text-zinc-900 shadow-xl space-y-4 transition-all hover:translate-y-[-4px] h-full flex flex-col justify-center">
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles size={16} className="text-amber-400" />
-              <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Fokus Minggu Ini</span>
+            <h2 className="text-[10px] uppercase font-bold tracking-[0.2em] text-zinc-400 dark:text-zinc-600 px-1">Refleksi Sejenak</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {dashboardInsights.insights.map((insight, idx) => (
+                <InsightCard key={idx} title={insight.title} description={insight.text} type={insight.type as any} />
+                ))}
+                {dashboardInsights.insights.length < 2 && (
+                <InsightCard title="Daily Rhythm" description="Focus is a muscle. Consistency is its fuel." type="neutral" />
+                )}
+                {/* Fallback Recommendation if not enough insights, or just show it */}
+                <InsightCard title={dashboardInsights.recommendation.title} description={dashboardInsights.recommendation.text} type="suggestion" />
             </div>
-            <h3 className="text-xl serif italic font-medium leading-snug">{dashboardInsights.recommendation.title}</h3>
-            <p className="text-zinc-400 dark:text-zinc-500 text-sm leading-relaxed serif italic text-lg">"{dashboardInsights.recommendation.text}"</p>
-          </div>
+        </div>
+        <div className="lg:col-span-5 space-y-4">
+           <h2 className="text-[10px] uppercase font-bold tracking-[0.2em] text-zinc-400 dark:text-zinc-600 px-1">Habit Tracker</h2>
+           <div className="h-full">
+               <HabitDashboardWidget 
+                  habits={state.habits} 
+                  logs={state.habitLogs} 
+                  onNavigate={() => router.push('/habits')} 
+               />
+           </div>
         </div>
       </section>
 

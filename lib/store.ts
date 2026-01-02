@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { Activity, FocusItem, Page, AppState, UserProfile, EngineSettings, UserPreferences, Block, BlockType } from './types';
+import { Activity, FocusItem, Page, AppState, UserProfile, EngineSettings, UserPreferences, Block, BlockType, Habit, HabitLog } from './types';
 import { INITIAL_PAGES } from './constants';
 
 const STORAGE_KEY = 'oneself_v1_state';
@@ -9,6 +9,8 @@ const DEFAULT_STATE: AppState = {
   activities: [],
   focusItems: [],
   pages: INITIAL_PAGES,
+  habits: [],
+  habitLogs: [],
   currentPageId: 'dashboard',
   sidebarOpen: true,
   userProfile: {
@@ -239,12 +241,43 @@ export const useAppStore = () => {
     }));
   };
 
+  const addHabit = (habit: Habit) => {
+    setState(prev => ({ ...prev, habits: [habit, ...prev.habits] }));
+  };
+
+  const updateHabit = (id: string, updates: Partial<Habit>) => {
+    setState(prev => ({ ...prev, habits: prev.habits.map(h => h.id === id ? { ...h, ...updates } : h) }));
+  };
+
+  const deleteHabit = (id: string) => {
+    setState(prev => ({ ...prev, habits: prev.habits.filter(h => h.id !== id) }));
+  };
+
+  const toggleHabitLog = (habitId: string, date: string) => {
+    setState(prev => {
+      const exists = prev.habitLogs.find(l => l.habitId === habitId && l.date === date);
+      if (exists) {
+        return { ...prev, habitLogs: prev.habitLogs.filter(l => l.id !== exists.id) };
+      } else {
+        const newLog: HabitLog = {
+          id: crypto.randomUUID(),
+          habitId,
+          date,
+          count: 1
+        };
+        return { ...prev, habitLogs: [...prev.habitLogs, newLog] };
+      }
+    });
+  };
+
   const importData = (data: Partial<AppState>) => {
     setState(prev => ({
       ...prev,
       ...data,
       activities: data.activities || prev.activities,
       focusItems: data.focusItems || prev.focusItems,
+      habits: data.habits || prev.habits,
+      habitLogs: data.habitLogs || prev.habitLogs,
     }));
   };
 
@@ -288,6 +321,10 @@ export const useAppStore = () => {
     moveFocusItem,
     toggleFocusItemCompletion,
     removeFocusItem,
+    addHabit,
+    updateHabit,
+    deleteHabit,
+    toggleHabitLog,
     importData,
     login,
     logout

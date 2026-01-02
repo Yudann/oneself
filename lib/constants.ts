@@ -32,6 +32,7 @@ export const INITIAL_PAGES: Page[] = [
     type: 'system',
     blocks: []
   },
+  { id: 'habits', title: 'Habits', icon: '✅', type: 'system', blocks: [] },
   { id: 'calendar', title: 'Calendar', icon: '📅', type: 'system', blocks: [] },
   { id: 'focus', title: 'Focus Board', icon: '🎯', type: 'system', blocks: [] },
   { id: 'insights', title: 'Insights', icon: '✨', type: 'system', blocks: [] },

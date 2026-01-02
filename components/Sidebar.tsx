@@ -19,12 +19,14 @@ import {
   ChevronDown,
   ChevronRight,
   Trash2,
-  LogOut
+  LogOut,
+  CheckCircle2
 } from 'lucide-react';
 import { ConfirmModal } from './ui/ConfirmModal';
 
 const ICON_MAP: Record<string, any> = {
   'dashboard': Home,
+  'habits': CheckCircle2,
   'calendar': Calendar,
   'database': Database,
   'focus': Target,

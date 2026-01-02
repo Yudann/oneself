@@ -1,5 +1,5 @@
 import { createClient } from '@/utils/supabase/client';
-import { Activity, Page, Block, FocusItem, UserProfile, BlockType } from './types';
+import { Activity, Page, Block, FocusItem, UserProfile, BlockType, UserPreferences, Habit, HabitLog } from './types';
 
 const supabase = createClient();
 
@@ -202,4 +202,83 @@ export async function updateFocusItem(id: string, updates: Partial<FocusItem>) {
 export async function deleteFocusItem(id: string) {
     const { error } = await supabase.from('focus_items').delete().eq('id', id);
     if (error) throw error;
+}
+
+
+// Habits
+export async function getHabits() {
+    const supabase = createClient();
+    const { data, error } = await supabase.from('habits').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data as Habit[];
+}
+
+export async function getHabitLogs() {
+    const supabase = createClient();
+    const { data, error } = await supabase.from('habit_logs').select('*');
+    if (error) throw error;
+    return data.map(l => ({
+        id: l.id,
+        habitId: l.habit_id,
+        userId: l.user_id,
+        date: l.date,
+        count: l.count,
+        note: l.note,
+        createdAt: l.created_at
+    })) as HabitLog[];
+}
+
+export async function createHabit(habit: Habit) {
+    const supabase = createClient();
+    const { error } = await supabase.from('habits').insert({
+        id: habit.id,
+        name: habit.name,
+        pillar: habit.pillar,
+        frequency: habit.frequency,
+        goal: habit.goal,
+        user_id: (await supabase.auth.getUser()).data.user?.id
+    });
+    if (error) throw error;
+}
+
+export async function updateHabit(id: string, updates: Partial<Habit>) {
+    const supabase = createClient();
+    const { error } = await supabase.from('habits').update(updates).eq('id', id);
+    if (error) throw error;
+}
+
+export async function deleteHabit(id: string) {
+    const supabase = createClient();
+    const { error } = await supabase.from('habits').delete().eq('id', id);
+    if (error) throw error;
+}
+
+export async function toggleHabitLog(habitId: string, date: string) {
+    const supabase = createClient();
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) throw new Error("No user");
+
+    // Check existing
+    const { data } = await supabase.from('habit_logs')
+        .select('id')
+        .eq('habit_id', habitId)
+        .eq('date', date)
+        .maybeSingle(); // Use maybeSingle to avoid 406 error if 0 rows
+
+    if (data) {
+        // Remove
+        const { error } = await supabase.from('habit_logs').delete().eq('id', data.id);
+        if (error) throw error;
+        return 'deleted';
+    } else {
+        // Insert
+        const { error } = await supabase.from('habit_logs').insert({
+            habit_id: habitId,
+            date: date,
+            count: 1,
+            user_id: user.id
+        });
+        if (error) throw error;
+        return 'created';
+    }
 }
