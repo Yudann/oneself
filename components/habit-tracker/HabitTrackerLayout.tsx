@@ -3,6 +3,8 @@ import { Calendar, List, BarChart3, Settings, Plus, CheckCircle2, Circle, Star, 
 import { Habit, HabitLog, UserProfile } from '../../lib/types';
 import { PILLARS } from '../../lib/constants';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
+import { HabitHeatmap } from './HabitHeatmap';
 
 interface HabitTrackerLayoutProps {
   habits: Habit[];
@@ -101,6 +103,9 @@ export const HabitTrackerLayout: React.FC<HabitTrackerLayoutProps> = ({
                  </div>
              </div>
         </div>
+
+        {/* Heatmap Overview */}
+        <HabitHeatmap logs={logs} days={56} />
 
         <div className="grid grid-cols-1 gap-4 pb-20">
             {activeHabits.length > 0 ? activeHabits.map(habit => {
