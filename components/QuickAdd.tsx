@@ -34,7 +34,7 @@ export const QuickAdd: React.FC = () => {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 md:bottom-10 md:right-10 w-14 h-14 md:w-16 md:h-16 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-2xl md:rounded-3xl shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all z-40 group"
+        className="fixed hidden md:flex md:bottom-10 md:right-10 w-14 h-14 md:w-16 md:h-16 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-2xl md:rounded-3xl shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all z-40 group"
       >
         <Plus size={28} />
       </button>
