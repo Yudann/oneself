@@ -41,16 +41,20 @@ body {
 ::-webkit-scrollbar {
   width: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #e2e2e2;
   border-radius: 10px;
 }
+
 .dark ::-webkit-scrollbar-thumb {
   background: #27272a;
 }
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -72,4 +76,15 @@ textarea::placeholder {
 .dark .glass {
   background: rgba(9, 9, 11, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Hide spin buttons for number inputs */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
 }

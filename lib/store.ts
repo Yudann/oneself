@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { Activity, FocusItem, Page, AppState, UserProfile, EngineSettings, UserPreferences, Block, BlockType, Habit, HabitLog } from './types';
+import { Activity, FocusItem, Page, AppState, UserProfile, EngineSettings, UserPreferences, Block, BlockType, Habit, HabitLog, Transaction, Subscription } from './types';
 import { INITIAL_PAGES } from './constants';
 
 const STORAGE_KEY = 'oneself_v1_state';
@@ -11,6 +11,8 @@ const DEFAULT_STATE: AppState = {
   pages: INITIAL_PAGES,
   habits: [],
   habitLogs: [],
+  transactions: [],
+  subscriptions: [],
   currentPageId: 'dashboard',
   sidebarOpen: true,
   userProfile: {
@@ -270,6 +272,36 @@ export const useAppStore = () => {
     });
   };
 
+  const updateHabitLog = (habitId: string, date: string, count: number) => {
+    setState(prev => {
+      const existing = prev.habitLogs.find(l => l.habitId === habitId && l.date === date);
+      if (count <= 0) {
+        return { ...prev, habitLogs: prev.habitLogs.filter(l => !(l.habitId === habitId && l.date === date)) };
+      }
+      if (existing) {
+        return { ...prev, habitLogs: prev.habitLogs.map(l => l.id === existing.id ? { ...l, count } : l) };
+      } else {
+        return { ...prev, habitLogs: [...prev.habitLogs, { id: crypto.randomUUID(), habitId, date, count }] };
+      }
+    });
+  };
+
+  const addTransaction = (transaction: Transaction) => {
+    setState(prev => ({ ...prev, transactions: [transaction, ...prev.transactions] }));
+  };
+
+  const updateTransaction = (id: string, updates: Partial<Transaction>) => {
+    setState(prev => ({ ...prev, transactions: prev.transactions.map(t => t.id === id ? { ...t, ...updates } : t) }));
+  };
+
+  const deleteTransaction = (id: string) => {
+    setState(prev => ({ ...prev, transactions: prev.transactions.filter(t => t.id !== id) }));
+  };
+
+  const addSubscription = (sub: Subscription) => setState(prev => ({ ...prev, subscriptions: [...prev.subscriptions, sub] }));
+  const updateSubscription = (id: string, updates: Partial<Subscription>) => setState(prev => ({ ...prev, subscriptions: prev.subscriptions.map(s => s.id === id ? { ...s, ...updates } : s) }));
+  const deleteSubscription = (id: string) => setState(prev => ({ ...prev, subscriptions: prev.subscriptions.filter(s => s.id !== id) }));
+
   const importData = (data: Partial<AppState>) => {
     setState(prev => ({
       ...prev,
@@ -278,6 +310,7 @@ export const useAppStore = () => {
       focusItems: data.focusItems || prev.focusItems,
       habits: data.habits || prev.habits,
       habitLogs: data.habitLogs || prev.habitLogs,
+      transactions: data.transactions || prev.transactions,
     }));
   };
 
@@ -325,6 +358,13 @@ export const useAppStore = () => {
     updateHabit,
     deleteHabit,
     toggleHabitLog,
+    updateHabitLog,
+    addTransaction,
+    updateTransaction,
+    deleteTransaction,
+    addSubscription,
+    updateSubscription,
+    deleteSubscription,
     importData,
     login,
     logout

@@ -1,9 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Calendar, List, BarChart3, Settings, Plus, CheckCircle2, Circle, Star, ArrowLeft, Flame, Trophy } from 'lucide-react';
+import { Calendar, List, BarChart3, Settings, Plus, CheckCircle2, Circle, Star, ArrowLeft, Flame, Trophy, Minus, Edit2, Check } from 'lucide-react';
 import { Habit, HabitLog, UserProfile } from '../../lib/types';
 import { PILLARS } from '../../lib/constants';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
 import { HabitHeatmap } from './HabitHeatmap';
 
 interface HabitTrackerLayoutProps {
@@ -15,25 +14,48 @@ interface HabitTrackerLayoutProps {
   onUpdateHabit: (id: string, updates: any) => void;
   onDeleteHabit: (id: string) => void;
   onToggleLog: (habitId: string, date: string) => void;
+  onUpdateLog: (habitId: string, date: string, count: number) => void;
   onUpdatePreferences: (updates: any) => void;
 }
 
 export const HabitTrackerLayout: React.FC<HabitTrackerLayoutProps> = ({ 
-  habits, logs, onAddHabit, onUpdateHabit, onDeleteHabit, onToggleLog, userPreferences, onUpdatePreferences, userProfile
+  habits, logs, onAddHabit, onUpdateHabit, onDeleteHabit, onToggleLog, onUpdateLog, userPreferences, onUpdatePreferences, userProfile
 }) => {
   const [activeTab, setActiveTab] = useState<'today' | 'habits' | 'insights' | 'settings'>('today');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const today = new Date().toISOString().split('T')[0];
+
+  const mostConsistentHabitId = useMemo(() => {
+      const counts: Record<string, number> = {};
+      logs.forEach(l => {
+          counts[l.habitId] = (counts[l.habitId] || 0) + 1;
+      });
+      return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
+  }, [logs]);
+
+  const favoriteHabit = habits.find(h => h.id === mostConsistentHabitId);
+
+  const pillarAccuracy = useMemo(() => {
+      const stats: Record<string, { total: number, done: number }> = {};
+      habits.forEach(h => {
+          if (!stats[h.pillar]) stats[h.pillar] = { total: 0, done: 0 };
+          stats[h.pillar].total++;
+          const habitLogs = logs.filter(l => l.habitId === h.id && l.count >= h.goal);
+          stats[h.pillar].done += habitLogs.length;
+      });
+      return stats;
+  }, [habits, logs]);
 
   const getStreak = (habitId: string) => {
      let streak = 0;
+     const habit = habits.find(h => h.id === habitId);
      const habitLogs = logs
-        .filter(l => l.habitId === habitId)
+        .filter(l => l.habitId === habitId && habit && l.count >= habit.goal)
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
      
      if (habitLogs.length === 0) return 0;
      
-     // Check if done today or yesterday to maintain active streak
      const todayLog = habitLogs.find(l => l.date === today);
      const yesterday = new Date();
      yesterday.setDate(yesterday.getDate() - 1);
@@ -42,9 +64,8 @@ export const HabitTrackerLayout: React.FC<HabitTrackerLayoutProps> = ({
 
      if (!todayLog && !yesterdayLog) return 0; 
      
-     // Simple calculation: just count contiguous days backwards
      let currentDate = new Date();
-     if (!todayLog) currentDate.setDate(currentDate.getDate() - 1); // Start checking from yesterday if not done today
+     if (!todayLog) currentDate.setDate(currentDate.getDate() - 1);
 
      while (true) {
          const dateStr = currentDate.toISOString().split('T')[0];
@@ -60,7 +81,10 @@ export const HabitTrackerLayout: React.FC<HabitTrackerLayoutProps> = ({
 
   const renderToday = () => {
     const activeHabits = habits.filter(h => !h.archived);
-    const completedCount = activeHabits.filter(h => logs.some(l => l.habitId === h.id && l.date === today)).length;
+    const completedCount = activeHabits.filter(h => {
+        const log = logs.find(l => l.habitId === h.id && l.date === today);
+        return log && log.count >= h.goal;
+    }).length;
     const totalHabits = activeHabits.length;
     const progress = totalHabits > 0 ? Math.round((completedCount / totalHabits) * 100) : 0;
     
@@ -104,21 +128,25 @@ export const HabitTrackerLayout: React.FC<HabitTrackerLayoutProps> = ({
              </div>
         </div>
 
-        {/* Heatmap Overview */}
-        <HabitHeatmap logs={logs} days={56} />
+        <HabitHeatmap logs={logs} />
 
         <div className="grid grid-cols-1 gap-4 pb-20">
             {activeHabits.length > 0 ? activeHabits.map(habit => {
-                const isDone = logs.some(l => l.habitId === habit.id && l.date === today);
+                const log = logs.find(l => l.habitId === habit.id && l.date === today);
+                const currentCount = log?.count || 0;
+                const isDone = currentCount >= habit.goal;
                 const streak = getStreak(habit.id);
+
                 return (
                     <div 
                         key={habit.id} 
-                        onClick={() => onToggleLog(habit.id, today)}
-                        className={`glass p-6 rounded-[2.5rem] flex items-center justify-between cursor-pointer transition-all hover:scale-[1.02] active:scale-95 group relative overflow-hidden ${isDone ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/40' : 'hover:bg-white/50 dark:hover:bg-zinc-800/50'}`}
+                        className={`glass p-6 rounded-[2.5rem] flex items-center justify-between transition-all group relative overflow-hidden ${isDone ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/40' : 'hover:bg-white/50 dark:hover:bg-zinc-800/50'}`}
                     >
                         <div className="flex items-center gap-5 z-10">
-                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all shadow-sm ${isDone ? 'bg-emerald-500 text-white rotate-6 scale-110' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 grayscale group-hover:grayscale-0'}`}>
+                            <div 
+                                onClick={() => onToggleLog(habit.id, today)}
+                                className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl cursor-pointer transition-all shadow-sm ${isDone ? 'bg-emerald-500 text-white rotate-6 scale-110' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 grayscale group-hover:grayscale-0'}`}
+                            >
                                 {PILLARS[habit.pillar as keyof typeof PILLARS]?.icon || '✨'}
                             </div>
                             <div>
@@ -133,8 +161,37 @@ export const HabitTrackerLayout: React.FC<HabitTrackerLayoutProps> = ({
                                 </div>
                             </div>
                         </div>
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all z-10 ${isDone ? 'text-emerald-500 scale-125' : 'text-zinc-200 dark:text-zinc-700 group-hover:text-zinc-400'}`}>
-                            {isDone ? <CheckCircle2 size={36} fill="currentColor" className="text-emerald-100 dark:text-emerald-900" /> : <Circle size={36} strokeWidth={1} />}
+
+                        {/* Numeric Tracker or Toggle */}
+                        <div className="flex items-center gap-3 z-10">
+                            {habit.goal > 1 ? (
+                                <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 border border-zinc-200 dark:border-zinc-700">
+                                    <button 
+                                        onClick={() => onUpdateLog(habit.id, today, Math.max(0, currentCount - 1))}
+                                        className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+                                    >
+                                        <Minus size={14} />
+                                    </button>
+                                    <div className="px-3 min-w-[3rem] text-center font-bold text-sm tabular-nums">
+                                        <span className={isDone ? 'text-emerald-500' : ''}>{currentCount}</span>
+                                        <span className="text-[10px] opacity-30 mx-1">/</span>
+                                        <span className="text-[10px] opacity-50">{habit.goal}</span>
+                                    </div>
+                                    <button 
+                                        onClick={() => onUpdateLog(habit.id, today, currentCount + 1)}
+                                        className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-emerald-500 transition-colors"
+                                    >
+                                        <Plus size={14} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div 
+                                    onClick={() => onToggleLog(habit.id, today)}
+                                    className={`w-12 h-12 rounded-full flex items-center justify-center cursor-pointer transition-all ${isDone ? 'text-emerald-500 scale-125' : 'text-zinc-200 dark:text-zinc-700 group-hover:text-zinc-400'}`}
+                                >
+                                    {isDone ? <CheckCircle2 size={36} fill="currentColor" className="text-emerald-100 dark:text-emerald-900" /> : <Circle size={36} strokeWidth={1} />}
+                                </div>
+                            )}
                         </div>
                     </div>
                 );
@@ -175,17 +232,29 @@ export const HabitTrackerLayout: React.FC<HabitTrackerLayoutProps> = ({
                             </div>
                             <div>
                                 <h3 className="text-lg font-bold serif text-zinc-800 dark:text-zinc-200">{habit.name}</h3>
-                                <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">{habit.pillar} • {habit.frequency}</span>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">{habit.pillar}</span>
+                                    <span className="w-1 h-1 rounded-full bg-zinc-200" />
+                                    <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">Goal: {habit.goal}</span>
+                                </div>
                             </div>
                         </div>
-                        <button 
-                            onClick={() => {
-                                if(confirm("Archive this habit?")) onDeleteHabit(habit.id);
-                            }} 
-                            className="p-3 text-zinc-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
-                        >
-                            <Plus size={18} className="rotate-45" />
-                        </button>
+                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                                onClick={() => setEditingHabit(habit)}
+                                className="p-3 text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+                            >
+                                <Edit2 size={16} />
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    if(confirm("Archive this habit?")) onDeleteHabit(habit.id);
+                                }} 
+                                className="p-3 text-zinc-300 hover:text-rose-500 transition-colors"
+                            >
+                                <Plus size={18} className="rotate-45" />
+                            </button>
+                        </div>
                     </div>
                 )) : (
                     <div className="py-20 text-center glass rounded-[3rem] opacity-30 italic serif text-2xl">
@@ -198,32 +267,55 @@ export const HabitTrackerLayout: React.FC<HabitTrackerLayoutProps> = ({
   };
 
   const renderInsights = () => {
-      // Logic for naive calc
-      return (
-          <div className="space-y-12 animate-in fade-in duration-700">
-             <header className="space-y-2">
-                <h2 className="text-4xl md:text-5xl font-bold serif italic text-zinc-900 dark:text-zinc-100">Progress</h2>
-                <p className="text-zinc-500 italic serif text-xl opacity-60">Melihat perjalananmu.</p>
+    const totalLogs = logs.length;
+
+    return (
+        <div className="space-y-12 animate-in fade-in duration-700">
+            <header className="space-y-2">
+                <h2 className="text-4xl md:text-5xl font-bold serif italic text-zinc-900 dark:text-zinc-100">Statistik</h2>
+                <p className="text-zinc-500 italic serif text-xl opacity-60">Cermin perjalananmu.</p>
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-20">
                 <div className="glass p-10 rounded-[3rem] space-y-4">
                     <div className="flex justify-between items-center mb-4">
-                        <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">Activity</h4>
+                        <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">Total Check-ins</h4>
                         <Star size={16} className="text-amber-500" />
                     </div>
-                    <div className="text-6xl font-bold serif italic text-zinc-900 dark:text-zinc-100">{logs.filter(l => l.count > 0).length}</div>
-                    <p className="text-sm text-zinc-500 serif italic">Total check-in.</p>
+                    <div className="text-6xl font-bold serif italic text-zinc-900 dark:text-zinc-100">{totalLogs}</div>
+                    <p className="text-sm text-zinc-500 serif italic">Kegiatan tercatat.</p>
                 </div>
+
                 <div className="bg-zinc-900 dark:bg-zinc-100 p-10 rounded-[3rem] text-white dark:text-zinc-900 space-y-4 shadow-2xl">
-                    <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-40">Insight</h4>
+                    <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-40">Top Performer</h4>
                     <div className="text-3xl font-bold serif italic leading-tight">
-                        {habits.length > 0 ? "You're building consistency." : "Start your journey."}
+                        {favoriteHabit ? `"${favoriteHabit.name}" adalah prioritas utamamu.` : "Tentukan fokusmu."}
+                    </div>
+                    {favoriteHabit && <p className="text-xs opacity-60">Paling sering kamu lakukan.</p>}
+                </div>
+
+                <div className="md:col-span-2 glass p-10 rounded-[3rem] space-y-6">
+                    <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">Pillar Consistency</h4>
+                    <div className="space-y-6">
+                        {Object.entries(pillarAccuracy).map(([pillar, data]) => (
+                            <div key={pillar} className="space-y-2">
+                                <div className="flex justify-between items-end">
+                                    <span className="font-bold serif italic text-zinc-700 dark:text-zinc-300 capitalize">{pillar}</span>
+                                    <span className="text-[10px] font-bold text-zinc-400">{data.done} check-ins</span>
+                                </div>
+                                <div className="h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                    <div 
+                                        className="h-full bg-zinc-900 dark:bg-zinc-100 transition-all duration-1000" 
+                                        style={{ width: `${Math.min(100, (data.done / (totalLogs || 1)) * 200)}%` }} 
+                                    />
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>
-          </div>
-      );
+        </div>
+    );
   };
 
   const renderSettings = () => {
@@ -279,7 +371,7 @@ export const HabitTrackerLayout: React.FC<HabitTrackerLayoutProps> = ({
 
                 <div className="p-8 text-center space-y-2 opacity-40">
                     <p className="text-xs font-bold uppercase tracking-widest">Oneself Habit Tracker</p>
-                    <p className="serif italic">v1.2.0 • Consistency over perfection.</p>
+                    <p className="serif italic">v1.2.5 • Consistency over perfection.</p>
                 </div>
             </div>
         </div>
@@ -292,10 +384,8 @@ export const HabitTrackerLayout: React.FC<HabitTrackerLayoutProps> = ({
         <ArrowLeft size={20} />
       </Link>
       
-      {/* Spacer for sticky header or just top padding */}
       <div className="h-10" />
 
-      {/* Main Content */}
       <main className="mb-24">
         {activeTab === 'today' && renderToday()}
         {activeTab === 'habits' && renderManage()}
@@ -303,7 +393,6 @@ export const HabitTrackerLayout: React.FC<HabitTrackerLayoutProps> = ({
         {activeTab === 'settings' && renderSettings()}
       </main>
 
-      {/* Internal Bottom Bar */}
       <nav className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-sm px-4 z-[90]">
         <div className="glass shadow-2xl rounded-full p-2 flex justify-between items-center border border-white/20 dark:border-white/5 bg-white/80 dark:bg-black/60 backdrop-blur-xl">
             {[
@@ -324,44 +413,53 @@ export const HabitTrackerLayout: React.FC<HabitTrackerLayoutProps> = ({
         </div>
       </nav>
 
-      {/* Add Modal */}
-      {isAddModalOpen && (
+      {/* Add / Edit Modal */}
+      {(isAddModalOpen || editingHabit) && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-in fade-in duration-500">
-              <div className="absolute inset-0 bg-zinc-900/40 backdrop-blur-xl" onClick={() => setIsAddModalOpen(false)} />
+              <div className="absolute inset-0 bg-zinc-900/40 backdrop-blur-xl" onClick={() => { setIsAddModalOpen(false); setEditingHabit(null); }} />
               <div className="bg-white dark:bg-zinc-900 w-full max-w-md rounded-[3.5rem] p-10 relative z-10 animate-in zoom-in-95 duration-500 shadow-2xl border border-white/10">
                   <header className="mb-10 text-center">
-                    <h3 className="text-3xl font-bold serif italic">Habit Baru</h3>
-                    <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mt-2">Niatkan langkahmu</p>
+                    <h3 className="text-3xl font-bold serif italic">{editingHabit ? 'Ubah Habit' : 'Habit Baru'}</h3>
+                    <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mt-2">{editingHabit ? 'Sesuaikan rutinitasmu' : 'Niatkan langkahmu'}</p>
                   </header>
                   <form className="space-y-8" onSubmit={(e) => {
                       e.preventDefault();
                       const formData = new FormData(e.currentTarget);
-                      onAddHabit({
+                      const habitData = {
                           name: formData.get('name'),
                           pillar: formData.get('pillar'),
                           frequency: 'daily',
-                          goal: 1,
+                          goal: parseInt(formData.get('goal') as string) || 1,
                           archived: false
-                      });
+                      };
+                      if (editingHabit) {
+                          onUpdateHabit(editingHabit.id, habitData);
+                      } else {
+                          onAddHabit(habitData);
+                      }
                       setIsAddModalOpen(false);
+                      setEditingHabit(null);
                   }}>
                       <div className="space-y-2">
                         <label className="text-[10px] uppercase font-bold text-zinc-400 tracking-widest px-2">Nama Habit</label>
-                        <input name="name" autoFocus placeholder="Minum air putih..." className="w-full text-2xl serif italic bg-zinc-50 dark:bg-zinc-800 p-6 rounded-[2rem] outline-none border-none focus:ring-2 focus:ring-emerald-500/20 transition-all dark:text-zinc-100" required />
+                        <input name="name" defaultValue={editingHabit?.name} autoFocus placeholder="Minum air putih..." className="w-full text-2xl serif italic bg-zinc-50 dark:bg-zinc-800 p-6 rounded-[2rem] outline-none border-none focus:ring-2 focus:ring-emerald-500/20 transition-all dark:text-zinc-100" required />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] uppercase font-bold text-zinc-400 tracking-widest px-2">Life Pillar</label>
-                        <div className="relative">
-                            <select name="pillar" className="w-full bg-zinc-50 dark:bg-zinc-800 p-6 rounded-[2rem] text-sm font-bold appearance-none outline-none border-none focus:ring-2 focus:ring-emerald-500/20 transition-all dark:text-zinc-100">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-[10px] uppercase font-bold text-zinc-400 tracking-widest px-2">Pillar</label>
+                            <select name="pillar" defaultValue={editingHabit?.pillar} className="w-full bg-zinc-50 dark:bg-zinc-800 p-6 rounded-[2rem] text-sm font-bold outline-none border-none focus:ring-2 focus:ring-emerald-500/20 transition-all dark:text-zinc-100">
                                 {Object.keys(PILLARS).map(p => (
                                     <option key={p} value={p}>{PILLARS[p as keyof typeof PILLARS].label}</option>
                                 ))}
                             </select>
-                            <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">▼</div>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] uppercase font-bold text-zinc-400 tracking-widest px-2">Daily Goal</label>
+                            <input name="goal" type="number" min="1" defaultValue={editingHabit?.goal || 1} className="w-full bg-zinc-50 dark:bg-zinc-800 p-6 rounded-[2rem] text-sm font-bold outline-none border-none focus:ring-2 focus:ring-emerald-500/20 transition-all dark:text-zinc-100" />
                         </div>
                       </div>
                       <button type="submit" className="w-full py-6 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-full font-bold uppercase tracking-[0.2em] text-xs shadow-xl hover:scale-[1.02] active:scale-95 transition-all">
-                          Simpan Niat
+                          {editingHabit ? 'Perbarui Niat' : 'Simpan Niat'}
                       </button>
                   </form>
               </div>

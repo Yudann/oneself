@@ -1,5 +1,5 @@
 import { createClient } from '@/utils/supabase/client';
-import { Activity, Page, Block, FocusItem, UserProfile, BlockType, UserPreferences, Habit, HabitLog } from './types';
+import { AppState, Page, Activity, UserProfile, UserPreferences, EngineSettings, FocusItem, Block, BlockType, Habit, HabitLog, Transaction, Subscription } from './types';
 
 const supabase = createClient();
 
@@ -281,4 +281,187 @@ export async function toggleHabitLog(habitId: string, date: string) {
         if (error) throw error;
         return 'created';
     }
+}
+
+export async function updateHabitLog(habitId: string, date: string, count: number) {
+    const supabase = createClient();
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) throw new Error("No user");
+
+    if (count <= 0) {
+        const { error } = await supabase.from('habit_logs').delete().eq('habit_id', habitId).eq('date', date);
+        if (error) throw error;
+        return 'deleted';
+    }
+
+    const { data: existing } = await supabase.from('habit_logs')
+        .select('id')
+        .eq('habit_id', habitId)
+        .eq('date', date)
+        .maybeSingle();
+
+    if (existing) {
+        const { error } = await supabase.from('habit_logs').update({ count }).eq('id', existing.id);
+        if (error) throw error;
+        return 'updated';
+    } else {
+        const { error } = await supabase.from('habit_logs').insert({
+            habit_id: habitId,
+            date: date,
+            count,
+            user_id: user.id
+        });
+        if (error) throw error;
+        return 'created';
+    }
+}
+
+export async function getTransactions(): Promise<Transaction[]> {
+    const supabase = createClient();
+    const { data, error } = await supabase.from('transactions')
+        .select('*')
+        .order('date', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map(t => ({
+        id: t.id,
+        userId: t.user_id,
+        type: t.type,
+        category: t.category,
+        amount: t.amount,
+        description: t.description,
+        date: t.date,
+        createdAt: t.created_at
+    })) as Transaction[];
+}
+
+export async function createTransaction(transaction: Transaction) {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase.from('transactions').insert({
+        id: transaction.id,
+        user_id: user.id,
+        type: transaction.type,
+        category: transaction.category,
+        amount: transaction.amount,
+        description: transaction.description,
+        date: transaction.date
+    }).select().single();
+
+    if (error) throw error;
+    return {
+        ...data,
+        userId: data.user_id,
+        createdAt: data.created_at
+    } as Transaction;
+}
+
+export async function updateTransaction(id: string, updates: Partial<Transaction>) {
+    const supabase = createClient();
+    const dbUpdates: any = {};
+    if (updates.type) dbUpdates.type = updates.type;
+    if (updates.category) dbUpdates.category = updates.category;
+    if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
+    if (updates.description !== undefined) dbUpdates.description = updates.description;
+    if (updates.date) dbUpdates.date = updates.date;
+
+    const { data, error } = await supabase.from('transactions')
+        .update(dbUpdates)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return {
+        ...data,
+        userId: data.user_id,
+        createdAt: data.created_at
+    } as Transaction;
+}
+
+export async function deleteTransaction(id: string) {
+    const supabase = createClient();
+    const { error } = await supabase.from('transactions').delete().eq('id', id);
+    if (error) throw error;
+}
+
+// --- Subscriptions ---
+export async function getSubscriptions(): Promise<Subscription[]> {
+    const supabase = createClient();
+    const { data, error } = await supabase.from('subscriptions')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map(s => ({
+        id: s.id,
+        userId: s.user_id,
+        name: s.name,
+        amount: s.amount,
+        billingCycle: s.billing_cycle,
+        category: s.category,
+        nextBillingDate: s.next_billing_date,
+        active: s.active,
+        createdAt: s.created_at
+    })) as Subscription[];
+}
+
+export async function createSubscription(sub: Subscription) {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase.from('subscriptions').insert({
+        id: sub.id,
+        user_id: user.id,
+        name: sub.name,
+        amount: sub.amount,
+        billing_cycle: sub.billingCycle,
+        category: sub.category,
+        next_billing_date: sub.nextBillingDate,
+        active: sub.active
+    }).select().single();
+
+    if (error) throw error;
+    return {
+        ...data,
+        userId: data.user_id,
+        billingCycle: data.billing_cycle,
+        nextBillingDate: data.next_billing_date,
+        createdAt: data.created_at
+    } as Subscription;
+}
+
+export async function updateSubscription(id: string, updates: Partial<Subscription>) {
+    const supabase = createClient();
+    const dbUpdates: any = {};
+    if (updates.name) dbUpdates.name = updates.name;
+    if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
+    if (updates.billingCycle) dbUpdates.billing_cycle = updates.billingCycle;
+    if (updates.category) dbUpdates.category = updates.category;
+    if (updates.nextBillingDate) dbUpdates.next_billing_date = updates.nextBillingDate;
+    if (updates.active !== undefined) dbUpdates.active = updates.active;
+
+    const { data, error } = await supabase.from('subscriptions')
+        .update(dbUpdates)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return {
+        ...data,
+        userId: data.user_id,
+        billingCycle: data.billing_cycle,
+        nextBillingDate: data.next_billing_date,
+        createdAt: data.created_at
+    } as Subscription;
+}
+
+export async function deleteSubscription(id: string) {
+    const supabase = createClient();
+    const { error } = await supabase.from('subscriptions').delete().eq('id', id);
+    if (error) throw error;
 }

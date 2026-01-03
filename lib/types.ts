@@ -117,6 +117,31 @@ export interface AppState {
   isAuthenticated: boolean;
   habits: Habit[];
   habitLogs: HabitLog[];
+  transactions: Transaction[];
+  subscriptions: Subscription[];
+}
+
+export interface Transaction {
+  id: string;
+  userId?: string;
+  type: 'income' | 'expense';
+  category: string;
+  amount: number;
+  description: string;
+  date: string;
+  createdAt?: string;
+}
+
+export interface Subscription {
+  id: string;
+  userId?: string;
+  name: string;
+  amount: number;
+  billingCycle: 'monthly' | 'yearly';
+  category: string;
+  nextBillingDate: string;
+  active: boolean;
+  createdAt?: string;
 }
 
 export interface Rule {

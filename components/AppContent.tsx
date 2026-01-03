@@ -6,9 +6,10 @@ import { useStore } from '@/lib/store-provider';
 import { Sidebar } from '@/components/Sidebar';
 import { PageWrapper } from '@/components/PageWrapper';
 import { QuickAdd } from '@/components/QuickAdd';
+import { ChevronRight } from 'lucide-react';
 
 export const AppContent = ({ children }: { children: React.ReactNode }) => {
-  const { state: { isAuthenticated }, isLoaded } = useStore();
+  const { state: { isAuthenticated, sidebarOpen }, isLoaded, toggleSidebar } = useStore();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -44,9 +45,17 @@ export const AppContent = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row w-full min-h-screen">
+    <div className="flex w-full min-h-screen bg-app transition-colors">
       <Sidebar />
-      <main className="flex-1 h-screen overflow-y-auto relative custom-scrollbar">
+      <main className={`flex-1 h-screen overflow-y-auto relative custom-scrollbar transition-all duration-300 ${sidebarOpen ? 'lg:pl-72' : 'lg:pl-0'}`}>
+        {!sidebarOpen && (
+          <button 
+            onClick={toggleSidebar}
+            className="fixed top-6 left-6 z-[80] p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 shadow-xl transition-all hover:scale-110 active:scale-95 hidden lg:flex"
+          >
+            <ChevronRight size={20} />
+          </button>
+        )}
         <PageWrapper>{children}</PageWrapper>
       </main>
       <QuickAdd />

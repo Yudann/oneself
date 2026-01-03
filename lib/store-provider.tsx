@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from './store'; 
 import { useUser, useSignOut } from './hooks/use-auth';
 import * as api from './api';
-import { AppState, Page, Activity, UserProfile, UserPreferences, EngineSettings, FocusItem, Block, BlockType, Habit, HabitLog } from './types';
+import { AppState, Page, Activity, UserProfile, UserPreferences, EngineSettings, FocusItem, Block, BlockType, Habit, HabitLog, Transaction, Subscription } from './types';
 import { INITIAL_PAGES } from './constants';
 
 // Define the shape of the context (same as store)
@@ -30,6 +30,8 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const { data: focusItems } = useQuery({ queryKey: ['focusItems', user?.id], queryFn: api.getFocusItems, enabled: !!user });
   const { data: habits } = useQuery({ queryKey: ['habits', user?.id], queryFn: api.getHabits, enabled: !!user });
   const { data: habitLogs } = useQuery({ queryKey: ['habitLogs', user?.id], queryFn: api.getHabitLogs, enabled: !!user });
+  const { data: transactions } = useQuery({ queryKey: ['transactions', user?.id], queryFn: api.getTransactions, enabled: !!user });
+  const { data: subscriptions } = useQuery({ queryKey: ['subscriptions', user?.id], queryFn: api.getSubscriptions, enabled: !!user });
 
   // Sync Data Down (Debounced/Throttled by user activity)
   useEffect(() => {
@@ -73,11 +75,19 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         newData.habitLogs = habitLogs;
         hasChanges = true;
     }
+    if (transactions && JSON.stringify(transactions) !== JSON.stringify(uiStore.state.transactions)) {
+        newData.transactions = transactions;
+        hasChanges = true;
+    }
+    if (subscriptions && JSON.stringify(subscriptions) !== JSON.stringify(uiStore.state.subscriptions)) {
+        newData.subscriptions = subscriptions;
+        hasChanges = true;
+    }
 
     if (hasChanges) {
        uiStore.importData(newData);
     }
-  }, [profile, activities, pages, focusItems, habits, habitLogs, uiStore]);
+  }, [profile, activities, pages, focusItems, habits, habitLogs, transactions, subscriptions, uiStore]);
 
 
   // Mutations with Toasts
@@ -195,6 +205,58 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       mutationFn: (vars: {habitId: string, date: string}) => api.toggleHabitLog(vars.habitId, vars.date), 
       onSuccess: () => queryClient.invalidateQueries({ queryKey: ['habitLogs'] }),
       onError: () => toast.error('Failed to update log')
+  });
+  const updateHabitLogMutation = useMutation({ 
+      mutationFn: (vars: {habitId: string, date: string, count: number}) => api.updateHabitLog(vars.habitId, vars.date, vars.count), 
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ['habitLogs'] }),
+      onError: () => toast.error('Failed to update log progress')
+  });
+
+  const createTransactionMutation = useMutation({ 
+      mutationFn: api.createTransaction, 
+      onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      },
+      onError: () => toast.error('Failed to save transaction')
+  });
+
+  const updateTransactionMutation = useMutation({ 
+      mutationFn: (vars: {id: string, updates: Partial<Transaction>}) => api.updateTransaction(vars.id, vars.updates), 
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ['transactions'] }),
+      onError: () => toast.error('Failed to update transaction')
+  });
+
+  const deleteTransactionMutation = useMutation({ 
+      mutationFn: api.deleteTransaction, 
+      onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['transactions'] });
+          toast.success('Transaction deleted');
+      },
+      onError: () => toast.error('Failed to delete transaction')
+  });
+
+  const createSubscriptionMutation = useMutation({ 
+      mutationFn: api.createSubscription, 
+      onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+          toast.success('Subscription saved');
+      },
+      onError: () => toast.error('Failed to save subscription')
+  });
+
+  const updateSubscriptionMutation = useMutation({ 
+      mutationFn: (vars: {id: string, updates: Partial<Subscription>}) => api.updateSubscription(vars.id, vars.updates), 
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
+      onError: () => toast.error('Failed to update subscription')
+  });
+
+  const deleteSubscriptionMutation = useMutation({ 
+      mutationFn: api.deleteSubscription, 
+      onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+          toast.success('Subscription removed');
+      },
+      onError: () => toast.error('Failed to delete subscription')
   });
 
   const contextValue: StoreContextType = useMemo(() => {
@@ -337,8 +399,114 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       },
       toggleHabitLog: (habitId, date) => {
         markLocalUpdate();
+        
+        const habit = uiStore.state.habits.find(h => h.id === habitId);
+        const isCurrentlyLogged = uiStore.state.habitLogs.some(l => l.habitId === habitId && l.date === date);
+        
+        // 1. Update Habit Log
         uiStore.toggleHabitLog(habitId, date);
         toggleHabitLogMutation.mutate({ habitId, date });
+
+        // 2. Integrated Activity Cross-post
+        if (!isCurrentlyLogged && habit) {
+            const newActId = crypto.randomUUID();
+            const habitActivity: any = {
+                id: newActId,
+                name: `Selesai: ${habit.name}`,
+                category: habit.pillar.charAt(0).toUpperCase() + habit.pillar.slice(1).toLowerCase(),
+                color: '#10b981',
+                intensity: 'medium',
+                duration: 15,
+                date: new Date(date).toISOString(),
+                mood: 'Good',
+                tags: [`#habit-${habitId}`]
+            };
+            uiStore.importData({ activities: [habitActivity, ...uiStore.state.activities] });
+            createActivityMutation.mutate(habitActivity);
+        } else if (isCurrentlyLogged) {
+            const linkedAct = uiStore.state.activities.find(a => 
+                a.tags?.includes(`#habit-${habitId}`) && 
+                a.date.startsWith(date)
+            );
+            if (linkedAct) {
+                uiStore.deleteActivity(linkedAct.id);
+                deleteActivityMutation.mutate(linkedAct.id);
+            }
+        }
+      },
+
+      updateHabitLog: (habitId, date, count) => {
+        markLocalUpdate();
+        
+        const habit = uiStore.state.habits.find(h => h.id === habitId);
+        const existingLog = uiStore.state.habitLogs.find(l => l.habitId === habitId && l.date === date);
+        const wasCompleted = existingLog && habit && existingLog.count >= habit.goal;
+        const isNowCompleted = habit && count >= habit.goal;
+
+        // 1. Update Habit Log
+        uiStore.updateHabitLog(habitId, date, count);
+        updateHabitLogMutation.mutate({ habitId, date, count });
+
+        // 2. Cross-post logic
+        if (!wasCompleted && isNowCompleted && habit) {
+            const newActId = crypto.randomUUID();
+            const habitActivity: any = {
+                id: newActId,
+                name: `Selesai: ${habit.name}`,
+                category: habit.pillar.charAt(0).toUpperCase() + habit.pillar.slice(1).toLowerCase(),
+                color: '#10b981',
+                intensity: 'medium',
+                duration: 15,
+                date: new Date(date).toISOString(),
+                mood: 'Good',
+                tags: [`#habit-${habitId}`]
+            };
+            uiStore.importData({ activities: [habitActivity, ...uiStore.state.activities] });
+            createActivityMutation.mutate(habitActivity);
+        } else if (wasCompleted && !isNowCompleted) {
+            const linkedAct = uiStore.state.activities.find(a => 
+                a.tags?.includes(`#habit-${habitId}`) && 
+                a.date.startsWith(date)
+            );
+            if (linkedAct) {
+                uiStore.deleteActivity(linkedAct.id);
+                deleteActivityMutation.mutate(linkedAct.id);
+            }
+        }
+      },
+
+      addTransaction: (transaction) => {
+        markLocalUpdate();
+        const newTrans = { ...transaction, id: crypto.randomUUID() };
+        uiStore.addTransaction(newTrans);
+        createTransactionMutation.mutate(newTrans);
+      },
+      updateTransaction: (id, updates) => {
+        markLocalUpdate();
+        uiStore.updateTransaction(id, updates);
+        updateTransactionMutation.mutate({ id, updates });
+      },
+      deleteTransaction: (id) => {
+        markLocalUpdate();
+        uiStore.deleteTransaction(id);
+        deleteTransactionMutation.mutate(id);
+      },
+
+      addSubscription: (sub) => {
+        markLocalUpdate();
+        const newSub = { ...sub, id: crypto.randomUUID() };
+        uiStore.addSubscription(newSub);
+        createSubscriptionMutation.mutate(newSub);
+      },
+      updateSubscription: (id, updates) => {
+        markLocalUpdate();
+        uiStore.updateSubscription(id, updates);
+        updateSubscriptionMutation.mutate({ id, updates });
+      },
+      deleteSubscription: (id) => {
+        markLocalUpdate();
+        uiStore.deleteSubscription(id);
+        deleteSubscriptionMutation.mutate(id);
       },
 
       importData: uiStore.importData,
@@ -346,12 +514,14 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       logout: () => signOut.mutate(),
     };
   }, [
-    user, profile, activities, pages, focusItems, habits, habitLogs, isAuthLoading, uiStore.state,
+    user, profile, activities, pages, focusItems, habits, habitLogs, transactions, subscriptions, isAuthLoading, uiStore.state,
     createActivityMutation, updateActivityMutation, deleteActivityMutation,
     createPageMutation, updatePageMutation, deletePageMutation,
     createBlockMutation, updateBlockMutation, deleteBlockMutation,
     createFocusItemMutation, updateFocusItemMutation, deleteFocusItemMutation,
-    createHabitMutation, updateHabitMutation, deleteHabitMutation, toggleHabitLogMutation,
+    createHabitMutation, updateHabitMutation, deleteHabitMutation, toggleHabitLogMutation, updateHabitLogMutation,
+    createTransactionMutation, updateTransactionMutation, deleteTransactionMutation,
+    createSubscriptionMutation, updateSubscriptionMutation, deleteSubscriptionMutation,
     uiStore
   ]);
 

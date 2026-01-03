@@ -20,13 +20,15 @@ import {
   ChevronRight,
   Trash2,
   LogOut,
-  CheckCircle2
+  CheckCircle2,
+  Wallet
 } from 'lucide-react';
 import { ConfirmModal } from './ui/ConfirmModal';
 
 const ICON_MAP: Record<string, any> = {
   'dashboard': Home,
   'habits': CheckCircle2,
+  'money': Wallet,
   'calendar': Calendar,
   'database': Database,
   'focus': Target,
@@ -178,7 +180,7 @@ export const Sidebar: React.FC = () => {
 
       <aside className={`
         fixed inset-y-0 left-0 z-[70] w-72 bg-sidebar border-r border-border
-        transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0
+        transform transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         flex flex-col p-6 shrink-0 transition-colors
       `}>

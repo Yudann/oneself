@@ -13,6 +13,7 @@ export default function HabitsPage() {
         updateHabit,
         deleteHabit,
         toggleHabitLog,
+        updateHabitLog,
         updateUserPreferences
     } = useStore();
 
@@ -38,6 +39,7 @@ export default function HabitsPage() {
                     onUpdateHabit={updateHabit}
                     onDeleteHabit={deleteHabit}
                     onToggleLog={toggleHabitLog}
+                    onUpdateLog={updateHabitLog}
                     onUpdatePreferences={updateUserPreferences}
                 />
             </div>

@@ -1,62 +1,136 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { HabitLog } from '../../lib/types';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface HabitHeatmapProps {
   logs: HabitLog[];
-  days?: number;
 }
 
-export const HabitHeatmap: React.FC<HabitHeatmapProps> = ({ logs, days = 70 }) => {
-  const today = new Date();
-  
-  const data = useMemo(() => {
+export const HabitHeatmap: React.FC<HabitHeatmapProps> = ({ logs }) => {
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  const monthData = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    
+    // First day of the month
+    const firstDay = new Date(year, month, 1);
+    // Last day of the month
+    const lastDay = new Date(year, month + 1, 0);
+    
+    const daysInMonth = lastDay.getDate();
+    const startDayOfWeek = firstDay.getDay(); // 0 (Sun) to 6 (Sat)
+    
+    // Adjust startDayOfWeek to make Monday the first day (0: Mon, 6: Sun)
+    // Formula: (startDayOfWeek + 6) % 7
+    const adjustedStartDay = (startDayOfWeek + 6) % 7;
+
     const map: Record<string, number> = {};
     logs.forEach(l => {
-      const dateStr = l.date;
-      map[dateStr] = (map[dateStr] || 0) + 1;
+      map[l.date] = (map[l.date] || 0) + 1;
     });
-    return map;
-  }, [logs]);
 
-  const squares = Array.from({ length: days }).map((_, i) => {
-    const d = new Date();
-    d.setDate(today.getDate() - (days - 1 - i));
-    const dateStr = d.toISOString().split('T')[0];
-    const value = data[dateStr] || 0;
+    const days = [];
+    // Pad for start of month
+    for (let i = 0; i < adjustedStartDay; i++) {
+      days.push(null);
+    }
     
-    let color = 'bg-zinc-100 dark:bg-zinc-800/50';
-    if (value >= 5) color = 'bg-emerald-500';
-    else if (value >= 3) color = 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.3)]';
-    else if (value >= 2) color = 'bg-emerald-300';
-    else if (value >= 1) color = 'bg-emerald-200 dark:bg-emerald-500/40';
+    // Real days
+    for (let i = 1; i <= daysInMonth; i++) {
+      const date = new Date(year, month, i);
+      const dateStr = date.toISOString().split('T')[0];
+      days.push({
+        day: i,
+        dateStr,
+        value: map[dateStr] || 0
+      });
+    }
 
-    return { dateStr, value, color };
-  });
+    return {
+      days,
+      monthName: currentDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+    };
+  }, [logs, currentDate]);
+
+  const navigateMonth = (direction: number) => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(newDate.getMonth() + direction);
+    setCurrentDate(newDate);
+  };
+
+  const getIntensityColor = (value: number) => {
+    if (value === 0) return 'bg-zinc-100 dark:bg-zinc-800/50';
+    if (value >= 5) return 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]';
+    if (value >= 3) return 'bg-emerald-400';
+    if (value >= 2) return 'bg-emerald-300';
+    return 'bg-emerald-200 dark:bg-emerald-500/30';
+  };
+
+  const dayLabels = ['S', 'S', 'R', 'K', 'J', 'S', 'M'];
 
   return (
-    <div className="glass p-6 rounded-[2.5rem] border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col transition-all hover:bg-white/60 dark:hover:bg-zinc-800/40 translate-z-0">
-      <div className="flex justify-between items-center mb-4 px-1">
-          <h3 className="text-[10px] font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.2em]">Habit Consistency</h3>
-          <div className="flex gap-1">
-              {[0, 1, 2, 3].map(v => (
-                  <div key={v} className={`w-1.5 h-1.5 rounded-full ${v === 0 ? 'bg-zinc-100 dark:bg-zinc-800' : v === 1 ? 'bg-emerald-200' : v === 2 ? 'bg-emerald-400' : 'bg-emerald-500'}`} />
-              ))}
+    <div className="glass p-6 rounded-[2.5rem] border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col transition-all group">
+      <div className="flex justify-between items-center mb-6">
+          <div>
+            <h3 className="text-[10px] font-bold text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.2em] mb-1">Consistency</h3>
+            <span className="serif italic text-lg font-bold text-zinc-800 dark:text-zinc-200">{monthData.monthName}</span>
+          </div>
+          <div className="flex gap-2">
+              <button 
+                onClick={() => navigateMonth(-1)}
+                className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button 
+                onClick={() => navigateMonth(1)}
+                className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+              >
+                <ChevronRight size={16} />
+              </button>
           </div>
       </div>
+
+      <div className="grid grid-cols-7 gap-2 mb-2 px-1">
+        {dayLabels.map((l, i) => (
+          <div key={i} className="text-[8px] font-bold text-zinc-300 dark:text-zinc-600 text-center uppercase">
+            {l}
+          </div>
+        ))}
+      </div>
       
-      <div className="flex flex-wrap gap-1.5">
-        {squares.map((s, i) => (
+      <div className="grid grid-cols-7 gap-2">
+        {monthData.days.map((d, i) => (
           <div
             key={i}
-            title={`${s.dateStr}: ${s.value} habits completed`}
-            className={`w-[11.5px] h-[11.5px] rounded-[3px] ${s.color} transition-all cursor-default flex-shrink-0 hover:scale-125 hover:z-10`}
-          />
+            title={d ? `${d.dateStr}: ${d.value} habits` : ''}
+            className={`
+              aspect-square rounded-lg transition-all duration-300 
+              ${d ? getIntensityColor(d.value) : 'bg-transparent'}
+              ${d ? 'hover:scale-110 cursor-default hover:z-10' : ''}
+              flex items-center justify-center relative
+            `}
+          >
+            {d && (
+              <span className="text-[8px] absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-20 pointer-events-none font-bold">
+                {d.day}
+              </span>
+            )}
+          </div>
         ))}
       </div>
 
-      <div className="flex justify-between mt-4 px-1 text-[8px] text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.15em] font-medium italic serif">
-        <span>{squares[0].dateStr.split('-').slice(1).reverse().join('/')}</span>
-        <span>Today</span>
+      <div className="flex justify-between items-center mt-6 px-1">
+        <div className="flex gap-1 items-center">
+            <span className="text-[8px] font-bold text-zinc-300 dark:text-zinc-600 uppercase tracking-widest mr-1">Intensity</span>
+            {[0, 2, 5].map(v => (
+                <div key={v} className={`w-2 h-2 rounded-full ${getIntensityColor(v)}`} />
+            ))}
+        </div>
+        <div className="text-[9px] italic serif text-zinc-400 opacity-60">
+            {logs.filter(l => l.date.startsWith(currentDate.toISOString().slice(0, 7))).length} logs this month
+        </div>
       </div>
     </div>
   );
