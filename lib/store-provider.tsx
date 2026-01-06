@@ -32,6 +32,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const { data: habitLogs } = useQuery({ queryKey: ['habitLogs', user?.id], queryFn: api.getHabitLogs, enabled: !!user });
   const { data: transactions } = useQuery({ queryKey: ['transactions', user?.id], queryFn: api.getTransactions, enabled: !!user });
   const { data: subscriptions } = useQuery({ queryKey: ['subscriptions', user?.id], queryFn: api.getSubscriptions, enabled: !!user });
+  const { data: thoughts } = useQuery({ queryKey: ['thoughts', user?.id], queryFn: api.getThoughts, enabled: !!user });
 
   // Sync Data Down (Debounced/Throttled by user activity)
   useEffect(() => {
@@ -83,11 +84,15 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         newData.subscriptions = subscriptions;
         hasChanges = true;
     }
+    if (thoughts && JSON.stringify(thoughts) !== JSON.stringify(uiStore.state.thoughts)) {
+        newData.thoughts = thoughts;
+        hasChanges = true;
+    }
 
     if (hasChanges) {
        uiStore.importData(newData);
     }
-  }, [profile, activities, pages, focusItems, habits, habitLogs, transactions, subscriptions, uiStore]);
+  }, [profile, activities, pages, focusItems, habits, habitLogs, transactions, subscriptions, thoughts, uiStore]);
 
 
   // Mutations with Toasts

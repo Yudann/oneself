@@ -21,7 +21,8 @@ import {
   Trash2,
   LogOut,
   CheckCircle2,
-  Wallet
+  Wallet,
+  Brain
 } from 'lucide-react';
 import { ConfirmModal } from './ui/ConfirmModal';
 
@@ -33,6 +34,7 @@ const ICON_MAP: Record<string, any> = {
   'database': Database,
   'focus': Target,
   'insights': Sparkles,
+  'thoughts': Brain,
   'settings': Settings,
 };
 

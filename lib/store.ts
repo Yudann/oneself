@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { Activity, FocusItem, Page, AppState, UserProfile, EngineSettings, UserPreferences, Block, BlockType, Habit, HabitLog, Transaction, Subscription } from './types';
+import { Activity, FocusItem, Page, AppState, UserProfile, EngineSettings, UserPreferences, Block, BlockType, Habit, HabitLog, Transaction, Subscription, Thought } from './types';
 import { INITIAL_PAGES } from './constants';
 
 const STORAGE_KEY = 'oneself_v1_state';
@@ -13,6 +13,7 @@ const DEFAULT_STATE: AppState = {
   habitLogs: [],
   transactions: [],
   subscriptions: [],
+  thoughts: [],
   currentPageId: 'dashboard',
   sidebarOpen: true,
   userProfile: {
@@ -302,6 +303,8 @@ export const useAppStore = () => {
   const updateSubscription = (id: string, updates: Partial<Subscription>) => setState(prev => ({ ...prev, subscriptions: prev.subscriptions.map(s => s.id === id ? { ...s, ...updates } : s) }));
   const deleteSubscription = (id: string) => setState(prev => ({ ...prev, subscriptions: prev.subscriptions.filter(s => s.id !== id) }));
 
+  const addThought = (thought: Thought) => setState(prev => ({ ...prev, thoughts: [thought, ...prev.thoughts] }));
+
   const importData = (data: Partial<AppState>) => {
     setState(prev => ({
       ...prev,
@@ -311,6 +314,8 @@ export const useAppStore = () => {
       habits: data.habits || prev.habits,
       habitLogs: data.habitLogs || prev.habitLogs,
       transactions: data.transactions || prev.transactions,
+      subscriptions: data.subscriptions || prev.subscriptions,
+      thoughts: data.thoughts || prev.thoughts,
     }));
   };
 
@@ -365,6 +370,7 @@ export const useAppStore = () => {
     addSubscription,
     updateSubscription,
     deleteSubscription,
+    addThought,
     importData,
     login,
     logout

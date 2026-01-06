@@ -1,5 +1,5 @@
 import { createClient } from '@/utils/supabase/client';
-import { AppState, Page, Activity, UserProfile, UserPreferences, EngineSettings, FocusItem, Block, BlockType, Habit, HabitLog, Transaction, Subscription } from './types';
+import { AppState, Page, Activity, UserProfile, UserPreferences, EngineSettings, FocusItem, Block, BlockType, Habit, HabitLog, Transaction, Subscription, Thought } from './types';
 
 const supabase = createClient();
 
@@ -464,4 +464,48 @@ export async function deleteSubscription(id: string) {
     const supabase = createClient();
     const { error } = await supabase.from('subscriptions').delete().eq('id', id);
     if (error) throw error;
+}
+
+// --- Thoughts ---
+export async function getThoughts(): Promise<Thought[]> {
+    const supabase = createClient();
+    const { data, error } = await supabase.from('thoughts')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map(t => ({
+        id: t.id,
+        userId: t.user_id,
+        content: t.content,
+        type: t.type,
+        mood: t.mood,
+        isDraft: t.is_draft,
+        createdAt: t.created_at
+    })) as Thought[];
+}
+
+export async function createThought(thought: Thought) {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase.from('thoughts').insert({
+        content: thought.content,
+        type: thought.type,
+        mood: thought.mood,
+        is_draft: thought.isDraft,
+        user_id: user.id
+    }).select().single();
+
+    if (error) throw error;
+    return {
+        id: data.id,
+        userId: data.user_id,
+        content: data.content,
+        type: data.type,
+        mood: data.mood,
+        isDraft: data.is_draft,
+        createdAt: data.created_at
+    } as Thought;
 }

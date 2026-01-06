@@ -119,6 +119,7 @@ export interface AppState {
   habitLogs: HabitLog[];
   transactions: Transaction[];
   subscriptions: Subscription[];
+  thoughts: Thought[];
 }
 
 export interface Transaction {
@@ -148,4 +149,17 @@ export interface Rule {
   id: string;
   description: string;
   severity: 'info' | 'warning';
+}
+
+export type ThoughtType = 'reflection' | 'motivation' | 'venting' | 'gratitude' | 'reminder';
+export type ThoughtMood = 'neutral' | 'calm' | 'anxious' | 'happy' | 'sad';
+
+export interface Thought {
+  id: string;
+  userId: string;
+  content: string;
+  type: ThoughtType;
+  mood?: ThoughtMood;
+  createdAt: string;
+  isDraft: boolean;
 }
