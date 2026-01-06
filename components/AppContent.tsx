@@ -23,6 +23,10 @@ export const AppContent = ({ children }: { children: React.ReactNode }) => {
 
   // If we are on the auth page, we just render the children without sidebar/quickadd
   if (pathname === '/auth') {
+    if (isAuthenticated) {
+      router.push('/');
+      return null;
+    }
     return <>{children}</>;
   }
 

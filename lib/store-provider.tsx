@@ -23,16 +23,26 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   // Track last local update to prevent "clobbering" by incoming server data while typing
   const lastLocalUpdate = useRef<number>(0);
 
-  // Queries
-  const { data: profile } = useQuery({ queryKey: ['profile', user?.id], queryFn: () => api.getProfile(user!.id), enabled: !!user });
-  const { data: activities } = useQuery({ queryKey: ['activities', user?.id], queryFn: api.getActivities, enabled: !!user });
-  const { data: pages } = useQuery({ queryKey: ['pages', user?.id], queryFn: api.getPages, enabled: !!user });
-  const { data: focusItems } = useQuery({ queryKey: ['focusItems', user?.id], queryFn: api.getFocusItems, enabled: !!user });
-  const { data: habits } = useQuery({ queryKey: ['habits', user?.id], queryFn: api.getHabits, enabled: !!user });
-  const { data: habitLogs } = useQuery({ queryKey: ['habitLogs', user?.id], queryFn: api.getHabitLogs, enabled: !!user });
-  const { data: transactions } = useQuery({ queryKey: ['transactions', user?.id], queryFn: api.getTransactions, enabled: !!user });
-  const { data: subscriptions } = useQuery({ queryKey: ['subscriptions', user?.id], queryFn: api.getSubscriptions, enabled: !!user });
-  const { data: thoughts } = useQuery({ queryKey: ['thoughts', user?.id], queryFn: api.getThoughts, enabled: !!user });
+  // Queries with Stale Time to prevent excessive fetching
+  const { data: profile } = useQuery({ queryKey: ['profile', user?.id], queryFn: () => api.getProfile(user!.id), enabled: !!user, staleTime: 300000 });
+  const { data: activities } = useQuery({ queryKey: ['activities', user?.id], queryFn: api.getActivities, enabled: !!user, staleTime: 300000 });
+  const { data: pages } = useQuery({ queryKey: ['pages', user?.id], queryFn: api.getPages, enabled: !!user, staleTime: 300000 });
+  const { data: focusItems } = useQuery({ queryKey: ['focusItems', user?.id], queryFn: api.getFocusItems, enabled: !!user, staleTime: 300000 });
+  const { data: habits } = useQuery({ queryKey: ['habits', user?.id], queryFn: api.getHabits, enabled: !!user, staleTime: 300000 });
+  const { data: habitLogs } = useQuery({ queryKey: ['habitLogs', user?.id], queryFn: api.getHabitLogs, enabled: !!user, staleTime: 300000 });
+  const { data: transactions } = useQuery({ queryKey: ['transactions', user?.id], queryFn: api.getTransactions, enabled: !!user, staleTime: 300000 });
+  const { data: subscriptions } = useQuery({ queryKey: ['subscriptions', user?.id], queryFn: api.getSubscriptions, enabled: !!user, staleTime: 300000 });
+  const { data: thoughts } = useQuery({ queryKey: ['thoughts', user?.id], queryFn: api.getThoughts, enabled: !!user, staleTime: 300000 });
+
+  // Sync Auth State
+  useEffect(() => {
+    if (user && !uiStore.state.isAuthenticated) {
+        uiStore.login(user.email || '', user.user_metadata?.name || 'User');
+    } else if (!user && !isAuthLoading && uiStore.state.isAuthenticated) {
+        // Only logout if we are sure there is no user and loading is done
+        uiStore.logout();
+    }
+  }, [user, isAuthLoading, uiStore.state.isAuthenticated, uiStore.login, uiStore.logout]);
 
   // Sync Data Down (Debounced/Throttled by user activity)
   useEffect(() => {
@@ -42,12 +52,15 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     const newData: Partial<AppState> = {};
     let hasChanges = false;
 
-    // Only import if meaningful valid data exists
-    if (profile && JSON.stringify(profile) !== JSON.stringify(uiStore.state.userProfile)) {
+    // Helper to compare
+    const isDiff = (a: any, b: any) => JSON.stringify(a) !== JSON.stringify(b);
+
+    // Only import if meaningful valid data exists and is different from current state
+    if (profile && isDiff(profile, uiStore.state.userProfile)) {
       newData.userProfile = profile;
       hasChanges = true;
     }
-    if (activities && JSON.stringify(activities) !== JSON.stringify(uiStore.state.activities)) {
+    if (activities && isDiff(activities, uiStore.state.activities)) {
       newData.activities = activities;
       hasChanges = true;
     }
@@ -56,35 +69,37 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         const currentPrivatePages = uiStore.state.pages.filter(p => p.type !== 'system');
         const currentSystemPages = uiStore.state.pages.filter(p => p.type === 'system');
 
-        const systemChanged = JSON.stringify(currentSystemPages) !== JSON.stringify(INITIAL_PAGES);
-        const privateChanged = JSON.stringify(fetchedPrivatePages) !== JSON.stringify(currentPrivatePages);
+        const systemChanged = isDiff(currentSystemPages, INITIAL_PAGES);
+        const privateChanged = isDiff(fetchedPrivatePages, currentPrivatePages);
 
         if (systemChanged || privateChanged) {
+            // We preserve system pages from INITIAL_PAGES but might want to preserve state? 
+            // Actually INITIAL_PAGES are static.
             newData.pages = [...INITIAL_PAGES, ...fetchedPrivatePages];
             hasChanges = true;
         }
     }
-    if (focusItems && JSON.stringify(focusItems) !== JSON.stringify(uiStore.state.focusItems)) {
+    if (focusItems && isDiff(focusItems, uiStore.state.focusItems)) {
       newData.focusItems = focusItems;
       hasChanges = true;
     }
-    if (habits && JSON.stringify(habits) !== JSON.stringify(uiStore.state.habits)) {
+    if (habits && isDiff(habits, uiStore.state.habits)) {
         newData.habits = habits;
         hasChanges = true;
     }
-    if (habitLogs && JSON.stringify(habitLogs) !== JSON.stringify(uiStore.state.habitLogs)) {
+    if (habitLogs && isDiff(habitLogs, uiStore.state.habitLogs)) {
         newData.habitLogs = habitLogs;
         hasChanges = true;
     }
-    if (transactions && JSON.stringify(transactions) !== JSON.stringify(uiStore.state.transactions)) {
+    if (transactions && isDiff(transactions, uiStore.state.transactions)) {
         newData.transactions = transactions;
         hasChanges = true;
     }
-    if (subscriptions && JSON.stringify(subscriptions) !== JSON.stringify(uiStore.state.subscriptions)) {
+    if (subscriptions && isDiff(subscriptions, uiStore.state.subscriptions)) {
         newData.subscriptions = subscriptions;
         hasChanges = true;
     }
-    if (thoughts && JSON.stringify(thoughts) !== JSON.stringify(uiStore.state.thoughts)) {
+    if (thoughts && isDiff(thoughts, uiStore.state.thoughts)) {
         newData.thoughts = thoughts;
         hasChanges = true;
     }
@@ -92,7 +107,9 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     if (hasChanges) {
        uiStore.importData(newData);
     }
-  }, [profile, activities, pages, focusItems, habits, habitLogs, transactions, subscriptions, thoughts, uiStore]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, activities, pages, focusItems, habits, habitLogs, transactions, subscriptions, thoughts]); 
+  // Removed uiStore from deps to prevent loop. We only want to sync when FETCHED data changes.
 
 
   // Mutations with Toasts
@@ -262,6 +279,15 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           toast.success('Subscription removed');
       },
       onError: () => toast.error('Failed to delete subscription')
+  });
+
+  const createThoughtMutation = useMutation({
+      mutationFn: api.createThought,
+      onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['thoughts'] });
+          // toast.success('Thought captured'); // Optional, maybe too noisy
+      },
+      onError: () => toast.error('Failed to save thought')
   });
 
   const contextValue: StoreContextType = useMemo(() => {
@@ -514,6 +540,13 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         deleteSubscriptionMutation.mutate(id);
       },
 
+      addThought: (thought) => {
+         markLocalUpdate();
+         // Optimistic update
+         uiStore.addThought(thought);
+         createThoughtMutation.mutate(thought);
+      },
+
       importData: uiStore.importData,
       login: (email, name) => {}, 
       logout: () => signOut.mutate(),
@@ -527,6 +560,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     createHabitMutation, updateHabitMutation, deleteHabitMutation, toggleHabitLogMutation, updateHabitLogMutation,
     createTransactionMutation, updateTransactionMutation, deleteTransactionMutation,
     createSubscriptionMutation, updateSubscriptionMutation, deleteSubscriptionMutation,
+    createThoughtMutation,
     uiStore
   ]);
 

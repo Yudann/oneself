@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Activity, FocusItem, Page, AppState, UserProfile, EngineSettings, UserPreferences, Block, BlockType, Habit, HabitLog, Transaction, Subscription, Thought } from './types';
 import { INITIAL_PAGES } from './constants';
 
@@ -338,7 +338,7 @@ export const useAppStore = () => {
     }));
   };
 
-  return {
+  return useMemo(() => ({
     state,
     isLoaded,
     setPage,
@@ -374,5 +374,5 @@ export const useAppStore = () => {
     importData,
     login,
     logout
-  };
+  }), [state, isLoaded, setPage, toggleSidebar, addPrivatePage, updatePage, deletePage, addBlockToPage, updateBlock, deleteBlock, addActivity, deleteActivity, updateActivity, updateUserProfile, updateUserPreferences, updateEngineSettings, setFocusItem, moveFocusItem, toggleFocusItemCompletion, removeFocusItem, addHabit, updateHabit, deleteHabit, toggleHabitLog, updateHabitLog, addTransaction, updateTransaction, deleteTransaction, addSubscription, updateSubscription, deleteSubscription, addThought, importData, login, logout]);
 };

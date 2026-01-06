@@ -6,10 +6,13 @@ import { Sparkles, Mail, User, ArrowRight, Lock, Activity, ShieldCheck } from 'l
 import { toast } from 'sonner';
 import { login, signup } from './actions';
 
+import { useQueryClient } from '@tanstack/react-query';
+
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -24,16 +27,10 @@ export default function AuthPage() {
             toast.error(result.error);
             setLoading(false);
         } else {
+            // Invalidate user query to ensure fresh auth state
+            await queryClient.invalidateQueries({ queryKey: ['user'] });
+            
             toast.success(isLogin ? 'Welcome back.' : 'Account created successfully.');
-            // Redirect is handled by the server action usually, but if we return, we can do it here too?
-            // Actually best practice with server actions is either redirect OR return.
-            // I will modify server action to RETURN data, and let client redirect if needed?
-            // Or server action redirects on success.
-            // If server action redirects, `await action` might throw or return undefined if redirect happens?
-            // NEXT.js: "If you call redirect in a Server Action, it acts like a thrown error."
-            // So `try/catch` might catch the redirect as an error? No, NEXT handles it.
-            // BUT if I want to show a Toast *before* redirect, it might be tricky if redirection is immediate.
-            // PLAN: Server Action returns `error` string if failing. If success, it returns nothing/success field. Client does redirect.
             if (result?.success) {
                  router.push('/');
             }
