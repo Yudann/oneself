@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Type, Heading1, Heading2, Heading3, List, ListOrdered, ChevronRight, 
-  MessageSquare, Quote, Table as TableIcon, Minus, CheckSquare, Smile
+  MessageSquare, Quote, Table as TableIcon, Minus, CheckSquare, Smile, Columns3
 } from 'lucide-react';
 import { BlockType } from '../lib/types';
 
@@ -38,6 +38,7 @@ export const CommandMenu: React.FC<CommandMenuProps> = ({ onSelect, onClose }) =
     { id: 'quote', label: 'Kutipan', icon: Quote, category: 'Blok dasar', shortcut: '"' },
     { id: 'table', label: 'Tabel', icon: TableIcon, category: 'Blok dasar' },
     { id: 'divider', label: 'Divider', icon: Minus, category: 'Blok dasar', shortcut: '---' },
+    { id: 'kanban_board', label: 'Kanban Board', icon: Columns3, category: 'Organisasi' },
     { id: 'mood_log', label: 'Mood Logger', icon: Smile, category: 'Personal' },
   ];
 

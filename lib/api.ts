@@ -94,7 +94,8 @@ export async function getPages(): Promise<Page[]> {
             content: b.content,
             config: b.config,
             textColor: b.text_color,
-            backgroundColor: b.background_color
+            backgroundColor: b.background_color,
+            parentId: b.parent_id
         })),
         contextRules: p.context_rules
     }));
@@ -141,7 +142,8 @@ export async function createBlock(pageId: string, block: Block) {
         content: block.content,
         config: block.config,
         text_color: block.textColor,
-        background_color: block.backgroundColor
+        background_color: block.backgroundColor,
+        parent_id: block.parentId
     });
     if (error) throw error;
 }
@@ -152,6 +154,7 @@ export async function updateBlock(id: string, updates: Partial<Block>) {
     if (updates.config !== undefined) dbUpdates.config = updates.config;
     if (updates.textColor !== undefined) dbUpdates.text_color = updates.textColor;
     if (updates.backgroundColor !== undefined) dbUpdates.background_color = updates.backgroundColor;
+    if (updates.parentId !== undefined) dbUpdates.parent_id = updates.parentId;
 
     const { error } = await supabase.from('blocks').update(dbUpdates).eq('id', id);
     if (error) throw error;

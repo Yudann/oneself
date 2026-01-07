@@ -81,7 +81,10 @@ export type BlockType =
   | 'divider'
   | 'callout'
   | 'table'
-  | 'mood_log';
+  | 'mood_log'
+  | 'kanban_board'
+  | 'kanban_column'
+  | 'kanban_card';
 
 export interface Block {
   id: string;
@@ -90,6 +93,7 @@ export interface Block {
   config?: Record<string, any>;
   textColor?: string;
   backgroundColor?: string;
+  parentId?: string | null;
 }
 
 export interface Page {

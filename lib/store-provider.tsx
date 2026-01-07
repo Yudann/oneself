@@ -2,11 +2,11 @@
 
 import React, { createContext, useContext, ReactNode, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useIsMutating } from '@tanstack/react-query';
 import { useAppStore } from './store'; 
 import { useUser, useSignOut } from './hooks/use-auth';
 import * as api from './api';
-import { AppState, Page, Activity, UserProfile, UserPreferences, EngineSettings, FocusItem, Block, BlockType, Habit, HabitLog, Transaction, Subscription } from './types';
+import { AppState, Page, Activity, UserProfile, UserPreferences, EngineSettings, FocusItem, Block, BlockType, Habit, HabitLog, Transaction, Subscription, Thought } from './types';
 import { INITIAL_PAGES } from './constants';
 
 // Define the shape of the context (same as store)
@@ -19,6 +19,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const signOut = useSignOut();
   const uiStore = useAppStore();
   const queryClient = useQueryClient();
+  const isMutating = useIsMutating();
   
   // Track last local update to prevent "clobbering" by incoming server data while typing
   const lastLocalUpdate = useRef<number>(0);
@@ -46,8 +47,9 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
   // Sync Data Down (Debounced/Throttled by user activity)
   useEffect(() => {
-    // If user typed recently (< 2s), don't overwrite local state with potentially stale/racing server data
-    if (Date.now() - lastLocalUpdate.current < 2000) return;
+    // If user typed recently (< 2s) OR a mutation is in progress,
+    // don't overwrite local state with potentially stale/racing server data
+    if (Date.now() - lastLocalUpdate.current < 2000 || isMutating > 0) return;
 
     const newData: Partial<AppState> = {};
     let hasChanges = false;
@@ -73,8 +75,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         const privateChanged = isDiff(fetchedPrivatePages, currentPrivatePages);
 
         if (systemChanged || privateChanged) {
-            // We preserve system pages from INITIAL_PAGES but might want to preserve state? 
-            // Actually INITIAL_PAGES are static.
             newData.pages = [...INITIAL_PAGES, ...fetchedPrivatePages];
             hasChanges = true;
         }
@@ -108,9 +108,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
        uiStore.importData(newData);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, activities, pages, focusItems, habits, habitLogs, transactions, subscriptions, thoughts]); 
-  // Removed uiStore from deps to prevent loop. We only want to sync when FETCHED data changes.
-
+  }, [profile, activities, pages, focusItems, habits, habitLogs, transactions, subscriptions, thoughts, isMutating]); 
 
   // Mutations with Toasts
   const createActivityMutation = useMutation({ 
@@ -285,7 +283,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       mutationFn: api.createThought,
       onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: ['thoughts'] });
-          // toast.success('Thought captured'); // Optional, maybe too noisy
       },
       onError: () => toast.error('Failed to save thought')
   });
@@ -328,7 +325,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           deletePageMutation.mutate(id);
       },
       
-      addBlockToPage: (pageId, type, config) => {
+      addBlockToPage: (pageId, type, config, parentId) => {
           markLocalUpdate();
           const blockId = crypto.randomUUID();
           const currentPages = uiStore.state.pages;
@@ -336,12 +333,13 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
               if (p.id !== pageId) return p;
               return {
                   ...p,
-                  blocks: [...p.blocks, { id: blockId, type, content: '', config }]
+                  blocks: [...p.blocks, { id: blockId, type, content: '', config, parentId }]
               };
           });
           uiStore.importData({ pages: updatedPages });
           
-          createBlockMutation.mutate({ pageId, block: { id: blockId, type, content: '', config } as any });
+          createBlockMutation.mutate({ pageId, block: { id: blockId, type, content: '', config, parentId } as any });
+          return blockId;
       },
       updateBlock: (pageId, blockId, updates) => {
           markLocalUpdate();
@@ -434,11 +432,9 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         const habit = uiStore.state.habits.find(h => h.id === habitId);
         const isCurrentlyLogged = uiStore.state.habitLogs.some(l => l.habitId === habitId && l.date === date);
         
-        // 1. Update Habit Log
         uiStore.toggleHabitLog(habitId, date);
         toggleHabitLogMutation.mutate({ habitId, date });
 
-        // 2. Integrated Activity Cross-post
         if (!isCurrentlyLogged && habit) {
             const newActId = crypto.randomUUID();
             const habitActivity: any = {
@@ -474,11 +470,9 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         const wasCompleted = existingLog && habit && existingLog.count >= habit.goal;
         const isNowCompleted = habit && count >= habit.goal;
 
-        // 1. Update Habit Log
         uiStore.updateHabitLog(habitId, date, count);
         updateHabitLogMutation.mutate({ habitId, date, count });
 
-        // 2. Cross-post logic
         if (!wasCompleted && isNowCompleted && habit) {
             const newActId = crypto.randomUUID();
             const habitActivity: any = {
@@ -542,17 +536,16 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
       addThought: (thought) => {
          markLocalUpdate();
-         // Optimistic update
          uiStore.addThought(thought);
          createThoughtMutation.mutate(thought);
       },
 
       importData: uiStore.importData,
-      login: (email, name) => {}, 
-      logout: () => signOut.mutate(),
+      login: uiStore.login, 
+      logout: uiStore.logout,
     };
   }, [
-    user, profile, activities, pages, focusItems, habits, habitLogs, transactions, subscriptions, isAuthLoading, uiStore.state,
+    user, profile, activities, pages, focusItems, habits, habitLogs, transactions, subscriptions, isAuthLoading, uiStore, isMutating,
     createActivityMutation, updateActivityMutation, deleteActivityMutation,
     createPageMutation, updatePageMutation, deletePageMutation,
     createBlockMutation, updateBlockMutation, deleteBlockMutation,
@@ -560,8 +553,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     createHabitMutation, updateHabitMutation, deleteHabitMutation, toggleHabitLogMutation, updateHabitLogMutation,
     createTransactionMutation, updateTransactionMutation, deleteTransactionMutation,
     createSubscriptionMutation, updateSubscriptionMutation, deleteSubscriptionMutation,
-    createThoughtMutation,
-    uiStore
+    createThoughtMutation, thoughts
   ]);
 
   return (

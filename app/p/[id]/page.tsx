@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store-provider';
 import { BlockRenderer } from '@/components/BlockRenderer';
 import { Activity, BlockType } from '@/lib/types';
-import { Heading1, Type, CheckSquare, Quote, MessageSquare, Smile, Minus, BarChart3, Target, Layout, Sparkles } from 'lucide-react';
+import { Heading1, Type, CheckSquare, Quote, MessageSquare, Smile, Minus, BarChart3, Target, Layout, Sparkles, Columns3 } from 'lucide-react';
 import { Menu } from 'lucide-react'; 
 import { CommandMenu } from '@/components/CommandMenu';
 import { useState, useEffect } from 'react';
@@ -54,6 +54,24 @@ export default function DynamicPage() {
   const activityActions = { addActivity, deleteActivity, updateActivity };
   const focusActions = { setFocusItem, moveFocusItem, toggleFocusItemCompletion, removeFocusItem };
 
+  const createKanbanBoard = () => {
+    if (!currentPage) return;
+    // Create board and get its ID
+    const boardId = addBlockToPage(currentPage.id, 'kanban_board', undefined, undefined);
+    
+    // Create default columns
+    const defaultColumns = [
+      { name: 'To Do', color: 'bg-zinc-400' },
+      { name: 'In Progress', color: 'bg-blue-400' },
+      { name: 'Done', color: 'bg-emerald-400' }
+    ];
+    
+    defaultColumns.forEach((col, index) => {
+      const colId = addBlockToPage(currentPage.id, 'kanban_column', { color: col.color, order: index }, boardId);
+      updateBlock(currentPage.id, colId, { content: col.name });
+    });
+  };
+
   if (!currentPage) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-zinc-400">
@@ -64,10 +82,16 @@ export default function DynamicPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-8 md:py-12 px-4 md:px-8 space-y-8 pb-32 animate-in fade-in duration-500 transition-colors">
+    <div className="max-w-7xl mx-auto py-8 md:py-12 px-4 md:px-8 space-y-8 pb-32 animate-in fade-in duration-500 transition-colors">
       {showCommandMenu && (
         <CommandMenu 
-          onSelect={(type, config) => addBlockToPage(currentPage.id, type, config)} 
+          onSelect={(type, config) => {
+            if (type === 'kanban_board') {
+              createKanbanBoard();
+            } else {
+              addBlockToPage(currentPage.id, type, config);
+            }
+          }} 
           onClose={() => setShowCommandMenu(false)} 
         />
       )}
@@ -82,8 +106,25 @@ export default function DynamicPage() {
 
       <div className="space-y-4 min-h-[400px]">
         {currentPage.blocks.length > 0 ? (
-          currentPage.blocks.map(block => (
-            <BlockRenderer key={block.id} block={block} isEditable={true} activities={state.activities} focusItems={state.focusItems} onUpdateBlock={(updates) => updateBlock(currentPage.id, block.id, updates)} onDeleteBlock={() => deleteBlock(currentPage.id, block.id)} activityActions={activityActions} focusActions={focusActions} />
+          currentPage.blocks
+            .filter(b => !b.parentId) // Only render top-level blocks
+            .map(block => (
+            <BlockRenderer 
+              key={block.id} 
+              block={block} 
+              isEditable={true} 
+              activities={state.activities} 
+              focusItems={state.focusItems} 
+              onUpdateBlock={(updates) => updateBlock(currentPage.id, block.id, updates)} 
+              onDeleteBlock={() => deleteBlock(currentPage.id, block.id)} 
+              activityActions={activityActions} 
+              focusActions={focusActions}
+              allBlocks={currentPage.blocks}
+              pageId={currentPage.id}
+              onAddChildBlock={addBlockToPage}
+              onUpdateChildBlock={updateBlock}
+              onDeleteChildBlock={deleteBlock}
+            />
           ))
         ) : (
           <div className="py-20 text-center space-y-4 opacity-30 dark:opacity-10">
@@ -122,9 +163,20 @@ export default function DynamicPage() {
               { type: 'heatmap', icon: BarChart3, label: 'Energy Heatmap' },
               { type: 'focus_board', icon: Target, label: 'Focus Grid' },
               { type: 'activity_log', icon: Layout, label: 'Archive' },
-              { type: 'insight', icon: Sparkles, label: 'Reflections' }
+              { type: 'insight', icon: Sparkles, label: 'Reflections' },
+              { type: 'kanban_board', icon: Columns3, label: 'Kanban Board', isSpecial: true }
             ].map(tool => (
-              <button key={tool.type} onClick={() => addBlockToPage(currentPage.id, tool.type as BlockType)} className="flex items-center gap-2 px-4 py-2 bg-zinc-50 dark:bg-zinc-800/40 rounded-2xl border border-zinc-100 dark:border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-600 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-100 dark:hover:border-emerald-900/40 transition-all hover:scale-105 active:scale-95">
+              <button 
+                key={tool.type} 
+                onClick={() => {
+                  if (tool.type === 'kanban_board') {
+                    createKanbanBoard();
+                  } else {
+                    addBlockToPage(currentPage.id, tool.type as BlockType);
+                  }
+                }} 
+                className="flex items-center gap-2 px-4 py-2 bg-zinc-50 dark:bg-zinc-800/40 rounded-2xl border border-zinc-100 dark:border-zinc-800 text-[10px] font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-600 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-100 dark:hover:border-emerald-900/40 transition-all hover:scale-105 active:scale-95"
+              >
                 <tool.icon size={12} /> {tool.label}
               </button>
             ))}

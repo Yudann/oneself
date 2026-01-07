@@ -112,20 +112,23 @@ export const useAppStore = () => {
   };
 
   // Block CRUD (Private Only)
-  const addBlockToPage = (pageId: string, type: BlockType, config?: any) => {
+  const addBlockToPage = (pageId: string, type: BlockType, config?: any, parentId?: string): string => {
+    const blockId = Math.random().toString(36).substr(2, 9);
     setState(prev => ({
       ...prev,
       pages: prev.pages.map(p => {
         if (p.id !== pageId || p.type === 'system') return p;
         const newBlock: Block = {
-          id: Math.random().toString(36).substr(2, 9),
+          id: blockId,
           type,
           content: '',
-          config
+          config,
+          parentId
         };
         return { ...p, blocks: [...p.blocks, newBlock] };
       })
     }));
+    return blockId;
   };
 
   const updateBlock = (pageId: string, blockId: string, updates: Partial<Block>) => {
@@ -146,9 +149,21 @@ export const useAppStore = () => {
       ...prev,
       pages: prev.pages.map(p => {
         if (p.id !== pageId || p.type === 'system') return p;
+
+        // Helper to get all IDs including nested ones
+        const getIdsToDelete = (id: string, blocks: Block[]): string[] => {
+          const children = blocks.filter(b => b.parentId === id);
+          let ids = [id];
+          children.forEach(c => {
+            ids = [...ids, ...getIdsToDelete(c.id, blocks)];
+          });
+          return ids;
+        };
+
+        const idsToDelete = getIdsToDelete(blockId, p.blocks);
         return {
           ...p,
-          blocks: p.blocks.filter(b => b.id !== blockId)
+          blocks: p.blocks.filter(b => !idsToDelete.includes(b.id))
         };
       })
     }));

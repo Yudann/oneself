@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Block, Activity, FocusItem } from '../lib/types';
+import { Block, Activity, FocusItem, BlockType } from '../lib/types';
 import { DatabaseTable } from './DatabaseTable';
 import { Heatmap } from './Heatmap';
 import { KanbanBoard } from './KanbanBoard';
@@ -19,6 +19,12 @@ interface BlockRendererProps {
   onDeleteBlock: () => void;
   activityActions: any;
   focusActions: any;
+  // For nested blocks (Kanban)
+  allBlocks?: Block[];
+  pageId?: string;
+  onAddChildBlock?: (pageId: string, type: BlockType, config?: any, parentId?: string) => void;
+  onUpdateChildBlock?: (pageId: string, blockId: string, updates: Partial<Block>) => void;
+  onDeleteChildBlock?: (pageId: string, blockId: string) => void;
 }
 
 export const BlockRenderer: React.FC<BlockRendererProps> = ({
@@ -29,7 +35,12 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
   onUpdateBlock,
   onDeleteBlock,
   activityActions,
-  focusActions
+  focusActions,
+  allBlocks = [],
+  pageId = '',
+  onAddChildBlock,
+  onUpdateChildBlock,
+  onDeleteChildBlock
 }) => {
   const [isToggled, setIsToggled] = useState(block.config?.isToggled || false);
   const [showColorMenu, setShowColorMenu] = useState(false);
@@ -314,6 +325,32 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                   </button>
                 ))}
               </div>
+            </div>
+          );
+      case 'kanban_board':
+          const { KanbanBlock } = require('./kanban/KanbanBlock');
+          return (
+            <div className="py-4">
+              <KanbanBlock 
+                block={block}
+                allBlocks={allBlocks}
+                isEditable={isEditable}
+                onUpdateBlock={(id, updates) => {
+                  if (onUpdateChildBlock && pageId) {
+                    onUpdateChildBlock(pageId, id, updates);
+                  }
+                }}
+                onAddBlock={(type, parentId) => {
+                  if (onAddChildBlock && pageId) {
+                    onAddChildBlock(pageId, type, undefined, parentId);
+                  }
+                }}
+                onDeleteBlock={(id) => {
+                  if (onDeleteChildBlock && pageId) {
+                    onDeleteChildBlock(pageId, id);
+                  }
+                }}
+              />
             </div>
           );
       default:
